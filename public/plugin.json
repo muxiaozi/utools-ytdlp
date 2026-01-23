@@ -2,7 +2,7 @@
   "main": "index.html",
   "logo": "logo.png",
   "preload": "preload.js",
-  "platform": ["win32"],
+  "platform": ["win32", "darwin", "linux"],
   "development": {
     "main": "http://localhost:5173/"
   },
@@ -10,7 +10,7 @@
     {
       "code": "home",
       "explain": "主页",
-      "cmds": ["视频下载器", "video download", "下载视频"]
+      "cmds": ["视频下载器", "download video", "下载视频"]
     },
     {
       "code": "download",

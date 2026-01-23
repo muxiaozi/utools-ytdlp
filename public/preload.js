@@ -1,96 +1,94 @@
-const child_process = require("node:child_process");
-const fs = require("node:fs");
-const path = require("node:path");
+const { YtDlp, helpers } = require("ytdlp-nodejs");
+const fs = require("node:fs").promises;
 
-async function runCommand(command) {
-  return new Promise((resolve, reject) => {
-    child_process.execFile(
-      command[0],
-      command.slice(1),
-      (err, stdout, stderr) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(stdout);
-        }
-      }
-    );
-  });
-}
-
-function downloadVideo(command, options) {
-  let proc = child_process.spawn(command[0], command.slice(1), {
-    env: {
-      PATH: `${path.dirname(options.ffmpegPath)}${path.delimiter}${
-        process.env.PATH
-      }`,
-    },
-  });
-  let stdout = "";
-  let stderr = "";
-  const callbackMap = new Map();
-
-  proc.on("error", (err) => {
-    const cb = callbackMap.get("error");
-    if (cb) {
-      cb(err);
-    }
-  });
-
-  proc.stdout.on("data", (data) => {
-    stdout += data.toString();
-  });
-
-  proc.stderr.on("data", (data) => {
-    stderr += data.toString();
-    // 6.00 MiB / 37.85 MiB [========>---------------------------------------------] 3.86 MiB p/s 15.85% 8s
-    let progressRegex =
-      /([\d\.]+) (\w+) \/ ([\d\.]+) (\w+) [^\]]*\] (\?|([\d\.]+) ([\w]+)) p\/s ([\d\.]+)%/;
-    let progress = data.toString().match(progressRegex);
-    // progress[1] 当前大小
-    // progress[2] 单位
-    // progress[3] 总大小
-    // progress[4] 单位
-    // progress[5] 速度 | ?
-    // progress[6] 速度
-    // progress[7] 速度单位
-    // progress[8] 百分比
-    if (progress) {
-      const cb = callbackMap.get("progress");
-      if (cb) {
-        cb(progress[8]);
-      }
-    }
-  });
-
-  proc.on("close", (code) => {
-    const cb = callbackMap.get("finish");
-    if (cb) {
-      cb(code, stdout, stderr);
-    }
-  });
-
-  /**
-   * @param {*} event "progress" | "error" | "finish"
-   * @param {*} callback
-   */
-  function on(event, callback) {
-    callbackMap.set(event, callback);
+/**
+ * 检测文件是否存在
+ * @param {string} filePath
+ * @returns
+ */
+window.fileExists = async (filePath) => {
+  try {
+    await fs.access(filePath, fs.constants.F_OK);
+    return true;
+  } catch (err) {
+    return false;
   }
+};
 
-  /**
-   * 停止下载
-   */
-  function stop() {
-    proc.kill();
+/**
+ * 删除文件
+ * @param {string} filePath
+ * @returns {Promise<void>}
+ */
+window.deleteFile = async (filePath) => {
+  try {
+    await fs.unlink(filePath);
+  } catch (err) {
+    console.error("删除文件失败:", err);
+    throw err;
   }
+};
 
-  return {
-    pid: proc.pid,
-    on,
-    stop,
-  };
-}
+/**
+ * 异步下载文件
+ * @param {string} url 下载链接
+ * @param {string} outputPath 文件保存路径
+ * 
+ * @returns {Promise<void>}
+ */
+window.downloadFile = async (url, outputPath) => {
+  return await helpers.downloadFile(url, outputPath);
+};
 
-window.runCommand = runCommand;
-window.downloadVideo = downloadVideo;
+// YtDlp Manager
+let ytdlp = null;
+
+window.ytdlp = {
+  // 初始化 YtDlp 实例
+  init: (config) => {
+    ytdlp = new YtDlp(config);
+    console.log("YtDlp initialized");
+    return true;
+  },
+  // 检查是否初始化
+  isInitialized: () => {
+    return ytdlp !== null;
+  },
+  // 检查安装是否有效
+  checkInstallationAsync: async (options) => {
+    if (!ytdlp) {
+      throw new Error("YtDlp is not initialized");
+    }
+    return await ytdlp.checkInstallationAsync(options);
+  },
+  // 下载视频
+  downloadAsync: async (url, options) => {
+    if (!ytdlp) {
+      throw new Error("YtDlp is not initialized");
+    }
+    return await ytdlp.downloadAsync(url, {
+      output: options.output,
+      format: {
+        filter: "mergevideo",
+        type: "mp4",
+        quality: options.quality,
+      },
+      proxy: options.proxy,
+      cookies: options.cookies,
+      onProgress: options.onProgress,
+      additionalOptions: options.additionalOptions,
+    });
+  },
+  // 获取视频信息
+  getInfoAsync: async (url, options) => {
+    if (!ytdlp) {
+      throw new Error("YtDlp is not initialized");
+    }
+    return await ytdlp.getInfoAsync(url, {
+      flatPlaylist: false,
+      proxy: options.proxy,
+      cookies: options.cookies,
+      additionalOptions: options.additionalOptions,
+    });
+  },
+};

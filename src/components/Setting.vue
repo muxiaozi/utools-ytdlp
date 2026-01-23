@@ -1,156 +1,247 @@
 <template>
-  <n-form
-    ref="formRef"
-    label-width="auto"
-    label-placement="left"
-    require-mark-placement="right-hanging"
-    :style="{
-      margin: '16px',
-    }"
-  >
-    <n-form-item label="lux 程序路径">
-      <n-flex :wrap="false" style="width: 100%">
-        <n-input
-          v-model:value="setting.luxPath"
-          placeholder="lux 程序路径"
-          readonly
-        />
-        <n-button-group>
-          <n-button @click="handleSelectLuxPath">选择...</n-button>
-          <n-button @click="handleDownloadLux">下载</n-button>
-        </n-button-group>
-      </n-flex>
-    </n-form-item>
-    <n-form-item label="ffmpeg 程序路径">
-      <n-flex :wrap="false" style="width: 100%">
-        <n-input
-          v-model:value="setting.ffmpegPath"
-          placeholder="ffmpeg 程序路径"
-          readonly
-        />
-        <n-button-group>
-          <n-button @click="handleSelectFFmpegPath">选择...</n-button>
-          <n-button @click="handleDownloadFFmpeg">下载</n-button>
-        </n-button-group>
-      </n-flex>
-    </n-form-item>
-    <n-form-item label="视频文件夹">
-      <n-flex :wrap="false" style="width: 100%">
-        <n-input
-          v-model:value="setting.outputDir"
-          placeholder="请输入视频文件夹路径"
-          readonly
-        />
-        <n-button-group>
-          <n-button @click="handleSelectOutputDir">选择...</n-button>
-          <n-button @click="handleOpenOutputDir">打开</n-button>
-        </n-button-group>
-      </n-flex>
-    </n-form-item>
-    <!-- <n-form-item label="优先分辨率">
-      <n-flex :wrap="false" style="width: 100%">
-        <n-radio-group v-model:value="setting.quality">
-          <n-radio-button
-            v-for="option in qualityOptions"
-            :key="option.label"
-            :label="option.label"
-            :value="option.value"
-          ></n-radio-button>
-        </n-radio-group>
-      </n-flex>
-    </n-form-item>
-    <n-form-item label="优先编码">
-      <n-flex :wrap="false" style="width: 100%">
-        <n-radio-group v-model:value="setting.codec">
-          <n-radio-button
-            v-for="option in codecOptions"
-            :key="option.label"
-            :label="option.label"
-            :value="option.value"
-          ></n-radio-button>
-        </n-radio-group>
-      </n-flex>
-    </n-form-item> -->
-    <n-form-item label="Cookie">
-      <n-dynamic-input
-        v-model:value="setting.cookies"
-        preset="pair"
-        key-placeholder="网址"
-        value-placeholder="Cookie"
-      />
-    </n-form-item>
-  </n-form>
+  <div class="setting-container">
+    <el-form label-width="auto">
+      <el-form-item label="下载质量">
+        <el-radio-group v-model="globalSetting.quality">
+          <el-radio value="highest">最高</el-radio>
+          <el-radio value="2160p">2160P (4K)</el-radio>
+          <el-radio value="1440p">1440P (2K)</el-radio>
+          <el-radio value="1080p">1080P</el-radio>
+          <el-radio value="720p">720P</el-radio>
+          <el-radio value="lowest">最低</el-radio>
+        </el-radio-group>
+      </el-form-item>
+      <el-form-item label="下载目录">
+        <div class="singleline-box">
+          <el-input v-model="localSetting.outputDir" style="flex: 1" />
+          <el-button-group>
+            <el-button @click="selectOutputDir">选择目录</el-button>
+            <el-button @click="openOutputDir">打开目录</el-button>
+          </el-button-group>
+        </div>
+      </el-form-item>
+      <el-form-item label="YtDlp 路径">
+        <div class="singleline-box">
+          <el-input v-model="localSetting.ytdlpPath" />
+          <el-button @click="selectYtdlpFile">选择文件</el-button>
+        </div>
+      </el-form-item>
+      <el-form-item label="FFmpeg 路径">
+        <div class="singleline-box">
+          <el-input v-model="localSetting.ffmpegPath" />
+          <el-button @click="selectFFmpegFile">选择文件</el-button>
+        </div>
+      </el-form-item>
+      <el-form-item label="Deno 路径">
+        <div class="singleline-box">
+          <el-input v-model="localSetting.denoPath" />
+          <el-button @click="selectDenoFile">选择文件</el-button>
+        </div>
+      </el-form-item>
+      <el-form-item label="Cookie 路径">
+        <div class="singleline-box">
+          <el-input v-model="localSetting.cookiePath" />
+          <el-button @click="selectCookieFile">选择文件</el-button>
+        </div>
+      </el-form-item>
+      <el-form-item label="代理地址">
+        <div class="singleline-box">
+          <el-input
+            v-model="localSetting.proxy"
+            :disabled="!localSetting.useProxy"
+            placeholder="例如 http://127.0.0.1:1080"
+          />
+          <el-checkbox border v-model="localSetting.useProxy">启用</el-checkbox>
+        </div>
+      </el-form-item>
+    </el-form>
+
+    <el-divider />
+
+    <el-form-item class="button-group">
+      <el-button
+        v-if="downloadComponentsVisible"
+        @click="downloadComponents"
+        :loading="downloadComponentsLoading"
+        >安装缺失组件</el-button
+      >
+      <el-button type="primary" @click="onSubmit">确定</el-button>
+    </el-form-item>
+  </div>
 </template>
 
 <script setup lang="ts">
-import {
-  NForm,
-  NFormItem,
-  NInput,
-  NButtonGroup,
-  NButton,
-  NFlex,
-  NDynamicInput,
-} from "naive-ui";
-import { setting } from "../utils/store";
+import { onMounted, computed, ref } from "vue";
+import { useRouter } from "vue-router";
+import { ElMessage, ElMessageBox } from "element-plus";
+import { localSetting, globalSetting } from "../store";
+import { denoUrl, exeExt, ffmpegUrl, ytdlpUrl } from "../utils";
 
-// const qualityOptions = [
-//   { label: "4K", value: "4k" },
-//   { label: "2K", value: "2k" },
-//   { label: "1080P", value: "1080p" },
-//   { label: "720P", value: "720p" },
-//   { label: "480P", value: "480p" },
-//   { label: "360P", value: "360p" },
-// ];
+const router = useRouter();
+const downloadComponentsVisible = computed(() => {
+  return (
+    !localSetting.ytdlpPath ||
+    !localSetting.ffmpegPath ||
+    !localSetting.denoPath
+  );
+});
+const downloadComponentsLoading = ref(false);
 
-// const codecOptions = [
-//   { label: "H.264", value: "h264" },
-//   { label: "H.265", value: "h265" },
-// ];
-
-function handleSelectLuxPath() {
-  let path = utools.showOpenDialog({
-    title: "选择 lux 程序路径",
-    filters: [{ name: "lux", extensions: ["exe"] }],
-    properties: ["openFile"],
-  });
-  if (path) {
-    setting.luxPath = path[0];
+onMounted(async () => {
+  try {
+    if (!window.ytdlp.isInitialized()) {
+      ElMessageBox.confirm("未找到 FFmpeg 或 YtDlp 组件", "提示", {
+        confirmButtonText: "帮我搞定",
+        cancelButtonText: "我自己来",
+        type: "primary",
+        showClose: false,
+        closeOnClickModal: false,
+      })
+        .then(() => {
+          downloadComponents();
+        })
+        .catch(() => {});
+    }
+  } catch (error) {
+    console.error("Error during YtdlpManager initialization:", error);
   }
-}
+});
 
-function handleDownloadLux() {
-  utools.shellOpenExternal("https://github.com/iawia002/lux/releases");
-}
+const onSubmit = () => {
+  router.back();
+};
 
-function handleSelectFFmpegPath() {
-  let path = utools.showOpenDialog({
-    title: "选择 ffmpeg 程序路径",
-    filters: [{ name: "ffmpeg", extensions: ["exe"] }],
-    properties: ["openFile"],
-  });
-  if (path) {
-    setting.ffmpegPath = path[0];
-  }
-}
-
-function handleDownloadFFmpeg() {
-  utools.shellOpenExternal("https://ffmpeg.org/download.html");
-}
-
-function handleSelectOutputDir() {
-  let path = utools.showOpenDialog({
-    title: "选择视频文件夹",
+const selectOutputDir = () => {
+  const path = utools.showOpenDialog({
+    title: "选择下载目录",
+    defaultPath: localSetting.outputDir,
     properties: ["openDirectory"],
   });
-  if (path) {
-    setting.outputDir = path[0];
+  if (path && path.length > 0) {
+    localSetting.outputDir = path[0];
   }
+};
+
+const openOutputDir = () => {
+  utools.shellOpenPath(localSetting.outputDir);
+};
+
+const selectYtdlpFile = () => {
+  const path = utools.showOpenDialog({
+    title: "选择 YtDlp 可执行文件",
+    defaultPath: localSetting.ytdlpPath,
+    properties: ["openFile"],
+  });
+  if (path && path.length > 0) {
+    localSetting.ytdlpPath = path[0];
+  }
+};
+
+const selectFFmpegFile = () => {
+  const path = utools.showOpenDialog({
+    title: "选择 FFmpeg 可执行文件",
+    defaultPath: localSetting.ffmpegPath,
+    properties: ["openFile"],
+  });
+  if (path && path.length > 0) {
+    localSetting.ffmpegPath = path[0];
+  }
+};
+
+const selectDenoFile = () => {
+  const path = utools.showOpenDialog({
+    title: "选择 Deno 可执行文件",
+    defaultPath: localSetting.denoPath,
+    properties: ["openFile"],
+  });
+  if (path && path.length > 0) {
+    localSetting.denoPath = path[0];
+  }
+};
+
+const selectCookieFile = () => {
+  const path = utools.showOpenDialog({
+    title: "选择 Cookie 文件",
+    defaultPath: localSetting.cookiePath,
+    properties: ["openFile"],
+    filters: [{ name: "Cookie Files", extensions: ["txt"] }],
+  });
+  if (path && path.length > 0) {
+    localSetting.cookiePath = path[0];
+  }
+};
+
+const downloadComponents = async () => {
+  console.log("downloadComponents");
+  try {
+    downloadComponentsLoading.value = true;
+    console.log("Checking YtDlp");
+    if (
+      !localSetting.ytdlpPath ||
+      !(await window.fileExists(localSetting.ytdlpPath))
+    ) {
+      const outputPath = utools.getPath("temp") + "/utools-ytdlp" + exeExt();
+      console.log("Downloading yt-dlp to:", outputPath);
+      await window.downloadFile(ytdlpUrl(), outputPath);
+      localSetting.ytdlpPath = outputPath;
+    }
+
+    console.log("Checking FFmpeg");
+    if (
+      !localSetting.ffmpegPath ||
+      !(await window.fileExists(localSetting.ffmpegPath))
+    ) {
+      const outputPath = utools.getPath("temp") + "/utools-ffmpeg" + exeExt();
+      console.log("Downloading ffmpeg to:", outputPath);
+      await window.downloadFile(ffmpegUrl(), outputPath);
+      localSetting.ffmpegPath = outputPath;
+    }
+
+    console.log("Checking Deno");
+    if (
+      !localSetting.denoPath ||
+      !(await window.fileExists(localSetting.denoPath))
+    ) {
+      const outputPath = utools.getPath("temp") + "/utools-deno" + exeExt();
+      console.log("Downloading deno to:", outputPath);
+      await window.downloadFile(denoUrl(), outputPath);
+      localSetting.denoPath = outputPath;
+    }
+
+    window.ytdlp.init({
+      binaryPath: localSetting.ytdlpPath,
+      ffmpegPath: localSetting.ffmpegPath,
+    });
+    ElMessage({
+      type: "success",
+      message: "组件下载完成",
+    });
+  } catch (error) {
+    ElMessage({
+      type: "error",
+      message: "组件下载失败，请重试",
+    });
+    console.error("Error downloading components:", error);
+  } finally {
+    downloadComponentsLoading.value = false;
+  }
+};
+</script>
+
+<style scoped>
+.setting-container {
+  padding: 20px 20px;
+  border-top: 1px solid var(--el-border-color-light);
 }
 
-function handleOpenOutputDir() {
-  if (setting.outputDir) {
-    utools.shellOpenPath(setting.outputDir);
-  }
+.singleline-box {
+  display: flex;
+  gap: 10px;
+  width: 100%;
 }
-</script>
+
+.button-group :deep(.el-form-item__content) {
+  display: flex;
+  justify-content: flex-end;
+}
+</style>

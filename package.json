@@ -1,25 +1,28 @@
 {
-  "name": "utools-lux",
+  "name": "utools-ytdlp",
   "private": true,
   "version": "0.0.0",
   "type": "commonjs",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc && vite build",
+    "build": "vue-tsc && vite build && cd dist && npm i --ignore-scripts",
     "preview": "vite preview"
   },
   "dependencies": {
-    "loadash": "^1.0.0",
+    "@element-plus/icons-vue": "^2.3.2",
+    "@vueuse/core": "^14.1.0",
+    "element-plus": "^2.12.0",
+    "lodash": "^4.17.21",
     "vue": "^3.4.21",
-    "vue-router": "^4.3.2"
+    "vue-router": "^4.3.2",
+    "ytdlp-nodejs": "^3.3.9"
   },
   "devDependencies": {
-    "@vicons/ionicons5": "^0.12.0",
-    "@vitejs/plugin-vue": "^5.0.4",
-    "naive-ui": "^2.38.2",
+    "@types/lodash": "^4.17.23",
+    "@vitejs/plugin-vue": "^6.0.3",
     "typescript": "^5.2.2",
-    "utools-api-types": "^5.0.0",
-    "vite": "^5.2.0",
-    "vue-tsc": "^2.0.6"
+    "utools-api-types": "^7.2.0",
+    "vite": "^7.2.7",
+    "vue-tsc": "^3.1.8"
   }
 }

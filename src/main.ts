@@ -1,14 +1,28 @@
 import { createApp } from "vue";
-import "./style.css";
+import ElementPlus from "element-plus";
 import App from "./App.vue";
 import router from "./router";
+import { useDark } from "@vueuse/core";
+import * as ElementPlusIconsVue from "@element-plus/icons-vue";
+
+import "element-plus/dist/index.css";
+import "element-plus/theme-chalk/dark/css-vars.css";
+import "./style.css";
 
 const app = createApp(App);
+
+// 注册所有图标
+for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
+  app.component(key, component);
+}
+
+app.use(ElementPlus);
 app.use(router);
 app.mount("#app");
 
 utools.onPluginEnter(async ({ code, type, payload }) => {
   console.log("onPluginEnter", code, type, payload);
+  useDark();
 
   if (code == "download") {
     switch (type) {
@@ -31,9 +45,15 @@ utools.onPluginEnter(async ({ code, type, payload }) => {
         });
         break;
       }
+      default: {
+        router.push({
+          name: "download",
+        });
+        break;
+      }
     }
   } else {
-    router.push({ name: "home" });
+    router.push({ name: "download" });
   }
 });
 

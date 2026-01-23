@@ -1,0 +1,6 @@
+{
+  "type": "commonjs",
+  "dependencies": {
+    "ytdlp-nodejs": "^3.3.9"
+  }
+}

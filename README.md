@@ -1,31 +1,5 @@
-# utools-lux
+# utools-ytdlp
 
-一款基于 [lux](https://github.com/iawia002/lux) 与 [uTools](https://u.tools/) 的视频下载工具
+一款基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 与 [uTools](https://u.tools/) 的视频下载工具
 
-## 待办
-
-- [ ] 使用系统代理
-- [ ] 偏好分辨率
-- [ ] 偏好编码
-
-## 展示
-
-* 主页
-
-![](./images/home.png)
-
-* 在浏览器中通过超级面板进入下载
-
-![](./images/download-web.png)
-
-* 下载单个视频
-
-![](./images/download.png)
-
-* 下载视频列表
-
-![](./images/playlist.png)
-
-* 设置
-
-![](./images/setting.png)
+体验链接：[视频下载器](https://www.u-tools.cn/plugins/detail/%E8%A7%86%E9%A2%91%E4%B8%8B%E8%BD%BD%E5%99%A8/)

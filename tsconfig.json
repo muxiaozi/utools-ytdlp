@@ -20,7 +20,7 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
 
-    "types": ["utools-api-types", "naive-ui/volar"]
+    "types": ["utools-api-types", "element-plus/global"]
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"],
   "references": [{ "path": "./tsconfig.node.json" }]
