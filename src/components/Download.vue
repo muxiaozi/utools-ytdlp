@@ -210,6 +210,7 @@ import {
   formatDuration,
   isPrepared,
   formatQuality,
+  makeUploaderLink,
 } from "../utils";
 import _ from "lodash";
 import { ElMessageBox } from "element-plus";
@@ -253,21 +254,9 @@ function openLink(url: string) {
 }
 
 function openUploaderLink(platform: string, id: string) {
-  switch (platform) {
-    case "BiliBili":
-      openLink(`https://space.bilibili.com/${id}`);
-      break;
-    case "Youtube":
-      openLink(`https://www.youtube.com/${id}`);
-      break;
-    case "PornHub":
-      openLink(`https://cn.pornhub.com/model/${id}`);
-      break;
-    case "XVideos":
-      openLink(`https://www.xvideos.com/${id}`);
-      break;
-    default:
-      break;
+  const link = makeUploaderLink(id, platform);
+  if (link) {
+    openLink(link);
   }
 }
 

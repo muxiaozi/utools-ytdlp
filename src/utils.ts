@@ -125,3 +125,28 @@ export function exeExt(): string {
     throw new Error("Unsupported platform");
   }
 }
+
+/**
+ * 根据UP主ID和平台生成UP主链接
+ * @param uploaderId UP主ID
+ * @param platform 平台
+ * @returns
+ */
+export function makeUploaderLink(
+  uploaderId: string,
+  platform: string,
+): string | undefined {
+  const DICT: Record<string, string> = {
+    BiliBili: "https://space.bilibili.com/{id}",
+    Youtube: "https://www.youtube.com/{id}",
+    PornHub: "https://cn.pornhub.com/model/{id}",
+    XVideos: "https://www.xvideos.com/{id}",
+  };
+
+  const template = DICT[platform];
+  if (!template) {
+    return undefined;
+  }
+
+  return template.replace("{id}", uploaderId);
+}
