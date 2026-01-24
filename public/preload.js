@@ -1,5 +1,5 @@
-const { YtDlp, helpers } = require("ytdlp-nodejs");
-const fs = require("node:fs").promises;
+const { YtDlp, helpers } = require("./ytdlp-nodejs");
+const fs = require("node:fs");
 
 /**
  * 检测文件是否存在
@@ -7,12 +7,7 @@ const fs = require("node:fs").promises;
  * @returns
  */
 window.fileExists = async (filePath) => {
-  try {
-    await fs.access(filePath, fs.constants.F_OK);
-    return true;
-  } catch (err) {
-    return false;
-  }
+  return fs.fileExistsSync(filePath);
 };
 
 /**
@@ -68,14 +63,13 @@ window.ytdlp = {
     }
     return await ytdlp.downloadAsync(url, {
       output: options.output,
-      format: {
-        filter: "mergevideo",
-        type: "mp4",
-        quality: options.quality,
-      },
+      format: options.format,
       proxy: options.proxy,
       cookies: options.cookies,
       onProgress: options.onProgress,
+      jsRuntime: options.jsRuntime,
+      printPaths: true,
+      onPaths: options.onPaths,
       additionalOptions: options.additionalOptions,
     });
   },
@@ -88,6 +82,7 @@ window.ytdlp = {
       flatPlaylist: false,
       proxy: options.proxy,
       cookies: options.cookies,
+      jsRuntime: options.jsRuntime,
       additionalOptions: options.additionalOptions,
     });
   },

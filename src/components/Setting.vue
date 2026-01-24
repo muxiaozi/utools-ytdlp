@@ -4,10 +4,11 @@
       <el-form-item label="下载质量">
         <el-radio-group v-model="globalSetting.quality">
           <el-radio value="highest">最高</el-radio>
-          <el-radio value="2160p">2160P (4K)</el-radio>
-          <el-radio value="1440p">1440P (2K)</el-radio>
+          <el-radio value="2160p">4K</el-radio>
+          <el-radio value="1440p">2K</el-radio>
           <el-radio value="1080p">1080P</el-radio>
           <el-radio value="720p">720P</el-radio>
+          <el-radio value="360p">360P</el-radio>
           <el-radio value="lowest">最低</el-radio>
         </el-radio-group>
       </el-form-item>

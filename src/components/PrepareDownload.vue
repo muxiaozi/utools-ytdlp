@@ -105,9 +105,7 @@ const analyzeLink = async () => {
     let result = await window.ytdlp.getInfoAsync(url.value, {
       cookies: localSetting.cookiePath,
       proxy: localSetting.useProxy ? localSetting.proxy : undefined,
-      additionalOptions: localSetting.denoPath
-        ? ["--js-runtimes", `deno:${localSetting.denoPath}`]
-        : undefined,
+      jsRuntime: localSetting.denoPath ? `deno:${localSetting.denoPath}` : "node",
     });
     console.log("分析结果:", result);
     if (result._type == "video") {

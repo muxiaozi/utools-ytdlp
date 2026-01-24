@@ -1,4 +1,5 @@
 import { localSetting } from "./store";
+import { VideoQuality } from "./types";
 
 export async function isPrepared(): Promise<boolean> {
   if (window.ytdlp.isInitialized()) {
@@ -48,6 +49,33 @@ export function formatSize(bytes: number | undefined): string {
 export function formatQuality(format: string): string {
   const qualitParts = format.split("+");
   return qualitParts.length > 0 ? qualitParts[0] : "-";
+}
+
+export function makeYtdlpFormat(quality: VideoQuality): string {
+  switch (quality) {
+    case "highest":
+      return "bv*+ba/b*";
+    case "lowest":
+      return "wv*+wa/w*";
+    case "2160p":
+      return "bv[height<=2160]+ba/b*[height<=2160]";
+    case "1440p":
+      return "bv[height<=1440]+ba/b*[height<=1440]";
+    case "1080p":
+      return "bv[height<=1080]+ba/b*[height<=1080]";
+    case "720p":
+      return "bv[height<=720]+ba/b*[height<=720]";
+    case "480p":
+      return "bv[height<=480]+ba/b*[height<=480]";
+    case "360p":
+      return "bv[height<=360]+ba/b*[height<=360]";
+    case "240p":
+      return "bv[height<=240]+ba/b*[height<=240]";
+    case "144p":
+      return "bv[height<=144]+ba/b*[height<=144]";
+    default:
+      return "bv*+ba/b*";
+  }
 }
 
 export function ytdlpUrl(): string {

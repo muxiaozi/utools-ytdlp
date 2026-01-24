@@ -72,11 +72,13 @@
         <template #default="{ row }">
           <el-tag
             :type="
-              row.state === 'finished'
-                ? 'success'
-                : row.state === 'failed'
-                  ? 'danger'
-                  : 'warning'
+              row.state === 'downloading'
+                ? 'warning'
+                : row.state === 'finished'
+                  ? 'success'
+                  : row.state === 'failed'
+                    ? 'danger'
+                    : 'info'
             "
             :percentage="row.progress"
             >{{
@@ -100,6 +102,18 @@
         </template>
       </el-table-column>
     </el-table>
+
+    <el-pagination
+      v-model:current-page="tableCurrentPage"
+      v-model:page-size="tablePageSize"
+      :page-sizes="[10, 20, 50]"
+      background
+      layout="total, sizes, prev, pager, next"
+      :total="videoItems.length"
+      @size-change="onSizeChange"
+      @current-change="onCurrentChange"
+      style="margin-top: 10px"
+    />
 
     <el-dialog
       v-model="createTaskDialogVisible"
@@ -135,7 +149,11 @@
             }}</el-descriptions-item
           >
           <el-descriptions-item label="Url">
-            <el-link type="primary" @click="openLink(selectVideo.url)" class="url-link">
+            <el-link
+              type="primary"
+              @click="openLink(selectVideo.url)"
+              class="url-link"
+            >
               {{ selectVideo.url }}
             </el-link>
           </el-descriptions-item>
@@ -185,18 +203,31 @@ import {
   Refresh as Retry,
 } from "@element-plus/icons-vue";
 import PrepareDownload from "./PrepareDownload.vue";
-import { VideoItem } from "../types";
-import { globalSetting, localSetting } from "../store";
+import { DisplayVideoItem, VideoItem } from "../types";
+import { globalSetting, localSetting, videoItems } from "../store";
 import {
   formatSize,
   formatDuration,
   isPrepared,
   formatQuality,
+  makeYtdlpFormat,
 } from "../utils";
 import _ from "lodash";
 import { ElMessageBox } from "element-plus";
 
-const tableData = ref<DisplayVideoItem[]>([]);
+const tableData = computed(() => {
+  const start = (tableCurrentPage.value - 1) * tablePageSize.value;
+  const end = start + tablePageSize.value;
+  const items = _.slice(videoItems, start, end);
+  for (const item of items) {
+    if (item.state == "pending") {
+      item.state = window.fileExists(makeFilePath(item))
+        ? "finished"
+        : "failed";
+    }
+  }
+  return items;
+});
 const createTaskDialogVisible = ref(false);
 const createTaskDialogKey = ref(0);
 const videoDetailVisible = ref(false);
@@ -204,32 +235,47 @@ const selectVideo = ref<DisplayVideoItem>();
 const router = useRouter();
 const route = useRoute();
 const multipleSelection = ref<DisplayVideoItem[]>([]);
-const tableHeight = ref(500);
+const tableHeight = ref(400);
 const batchDeleteEnabled = computed(() => {
   return multipleSelection.value.length > 0;
 });
+const tableCurrentPage = ref(1);
+const tablePageSize = ref(10);
 
 const url =
   typeof route.query?.url === "string"
     ? decodeURIComponent(route.query.url)
     : undefined;
 
-type DisplayVideoItem = VideoItem & {
-  progress: number;
-  state: "pending" | "downloading" | "finished" | "failed";
-  index: number;
-};
-
 function openLink(url: string) {
   utools.shellOpenExternal(url);
 }
 
 function openUploaderLink(platform: string, id: string) {
-  if (platform === "BiliBili") {
-    openLink(`https://space.bilibili.com/${id}`);
-  } else if (platform === "Youtube") {
-    openLink(`https://www.youtube.com/${id}`);
+  switch (platform) {
+    case "BiliBili":
+      openLink(`https://space.bilibili.com/${id}`);
+      break;
+    case "Youtube":
+      openLink(`https://www.youtube.com/${id}`);
+      break;
+    case "PornHub":
+      openLink(`https://cn.pornhub.com/model/${id}`);
+      break;
+    case "XVideos":
+      openLink(`https://www.xvideos.com/${id}`);
+      break;
+    default:
+      break;
   }
+}
+
+function onCurrentChange(page: number) {
+  tableCurrentPage.value = page;
+}
+
+function onSizeChange(size: number) {
+  tablePageSize.value = size;
 }
 
 async function onSelectionChange(items: DisplayVideoItem[]) {
@@ -239,7 +285,7 @@ async function onSelectionChange(items: DisplayVideoItem[]) {
 async function startDownload(items: VideoItem[]) {
   createTaskDialogVisible.value = false;
   for (const item of items) {
-    let displayItem = tableData.value.find((v) => v.id === item.id);
+    let displayItem = videoItems.find((v) => v.id === item.id);
     if (!displayItem) {
       const videoCount = globalSetting.videoCount;
 
@@ -249,10 +295,10 @@ async function startDownload(items: VideoItem[]) {
       displayItem = reactive<DisplayVideoItem>({
         ...item,
         progress: 0,
-        state: "pending",
+        state: "downloading",
         index: videoCount,
       });
-      tableData.value.push(displayItem);
+      videoItems.unshift(displayItem);
 
       // 保存到数据库
       utools.dbStorage.setItem("videos/" + videoCount, _.cloneDeep(item));
@@ -260,24 +306,28 @@ async function startDownload(items: VideoItem[]) {
     } else {
       // 重置状态
       displayItem.progress = 0;
-      displayItem.state = "pending";
+      displayItem.state = "downloading";
     }
 
     if (displayItem.state != "finished") {
       console.log("start download:", item.url);
       window.ytdlp.downloadAsync(item.url, {
         output: makeFilePath(item),
-        quality: globalSetting.quality,
+        format: makeYtdlpFormat(globalSetting.quality),
         cookies: localSetting.cookiePath,
         proxy: localSetting.useProxy ? localSetting.proxy : undefined,
-        additionalOptions: localSetting.denoPath
-          ? ["--js-runtimes", `deno:${localSetting.denoPath}`]
-          : undefined,
+        jsRuntime: localSetting.denoPath
+          ? `deno:${localSetting.denoPath}`
+          : "node",
         onProgress: (progress) => {
           console.log(progress);
           displayItem.progress = Math.floor(progress.percentage);
           displayItem.state =
             progress.percentage == 100 ? "finished" : "downloading";
+        },
+        onPaths: (paths) => {
+          console.log(paths);
+          displayItem.state = "finished";
         },
       });
     }
@@ -308,9 +358,9 @@ function openDetail(row: DisplayVideoItem) {
 
 function doDeleteVideo(row: DisplayVideoItem) {
   utools.dbStorage.removeItem("videos/" + row.index);
-  const index = tableData.value.findIndex((item) => item.id === row.id);
+  const index = videoItems.findIndex((item) => item.id === row.id);
   if (index > -1) {
-    tableData.value.splice(index, 1);
+    videoItems.splice(index, 1);
   }
 }
 
@@ -332,7 +382,7 @@ function batchDelete() {
     .then(async () => {
       // 获取 checkbox 的状态
       const checkbox = document.getElementById(
-        "batch-delete-source-file-checkbox"
+        "batch-delete-source-file-checkbox",
       ) as HTMLInputElement;
       const deleteSourceFile = checkbox?.checked || false;
 
@@ -375,7 +425,7 @@ function deleteVideo(row: DisplayVideoItem) {
     .then(async () => {
       // 获取 checkbox 的状态
       const checkbox = document.getElementById(
-        "delete-source-file-checkbox"
+        "delete-source-file-checkbox",
       ) as HTMLInputElement;
       const deleteSourceFile = checkbox?.checked || false;
 
@@ -402,7 +452,7 @@ function deleteVideo(row: DisplayVideoItem) {
 
 function calculateTableHeight() {
   // 操作栏高度约为 40px，加上一些边距和padding，预留 60px
-  const operationBarHeight = 60;
+  const operationBarHeight = 90;
   tableHeight.value = window.innerHeight - operationBarHeight;
 }
 
@@ -412,25 +462,12 @@ function handleResize() {
 
 onMounted(async () => {
   // 初始化表格高度
-  calculateTableHeight();
+  setTimeout(() => {
+    calculateTableHeight();
+  }, 100);
 
   // 监听窗口大小变化
   window.addEventListener("resize", handleResize);
-
-  for (let i = 0; i < globalSetting.videoCount; i++) {
-    const videoItem = utools.dbStorage.getItem<VideoItem>("videos/" + i);
-    if (!videoItem) {
-      continue;
-    }
-
-    const state = (await window.fileExists(makeFilePath(videoItem))) ? "finished" : "failed";
-    tableData.value.push({
-      ...videoItem,
-      state,
-      progress: 0,
-      index: i,
-    });
-  }
 
   if (!(await isPrepared())) {
     router.push({ name: "setting" });
