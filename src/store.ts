@@ -1,6 +1,11 @@
 import { reactive, watch } from "vue";
 import _ from "lodash";
-import { VideoItem, DisplayVideoItem, GlobalSetting, LocalSetting } from "./types";
+import {
+  VideoItem,
+  DisplayVideoItem,
+  GlobalSetting,
+  LocalSetting,
+} from "./types";
 
 // LocalSetting
 const localSetting = reactive<LocalSetting>({
@@ -52,7 +57,7 @@ for (let i = 0; i < globalSetting.videoCount; i++) {
     continue;
   }
 
-  videoItems.push({
+  videoItems.unshift({
     ...videoItem,
     state: "pending",
     progress: 0,
