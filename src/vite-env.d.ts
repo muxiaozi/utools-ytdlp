@@ -27,7 +27,6 @@ declare class YtdlpManager {
       cookies?: string;
       proxy?: string;
       onProgress?: (progress: DownloadProcess) => void;
-      onPaths?: (paths: string[]) => void;
       jsRuntime?: string;
       additionalOptions?: string[];
     },

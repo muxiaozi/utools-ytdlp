@@ -192,7 +192,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, reactive, computed } from "vue";
+import { onMounted, onUnmounted, ref, reactive, computed, inject } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   Setting,
@@ -210,10 +210,10 @@ import {
   formatDuration,
   isPrepared,
   formatQuality,
-  makeYtdlpFormat,
 } from "../utils";
 import _ from "lodash";
 import { ElMessageBox } from "element-plus";
+import { DownloadQueue } from "../download_queue";
 
 const tableData = computed(() => {
   const start = (tableCurrentPage.value - 1) * tablePageSize.value;
@@ -241,6 +241,7 @@ const batchDeleteEnabled = computed(() => {
 });
 const tableCurrentPage = ref(1);
 const tablePageSize = ref(10);
+const downloadQueue = inject<DownloadQueue>("downloadQueue");
 
 const url =
   typeof route.query?.url === "string"
@@ -284,6 +285,7 @@ async function onSelectionChange(items: DisplayVideoItem[]) {
 
 async function startDownload(items: VideoItem[]) {
   createTaskDialogVisible.value = false;
+  const itemToDownload: DisplayVideoItem[] = [];
   for (const item of items) {
     let displayItem = videoItems.find((v) => v.id === item.id);
     if (!displayItem) {
@@ -298,7 +300,7 @@ async function startDownload(items: VideoItem[]) {
         state: "downloading",
         index: videoCount,
       });
-      videoItems.unshift(displayItem);
+      itemToDownload.push(displayItem);
 
       // 保存到数据库
       utools.dbStorage.setItem("videos/" + videoCount, _.cloneDeep(item));
@@ -309,29 +311,18 @@ async function startDownload(items: VideoItem[]) {
       displayItem.state = "downloading";
     }
 
-    if (displayItem.state != "finished") {
-      console.log("start download:", item.url);
-      window.ytdlp.downloadAsync(item.url, {
-        output: makeFilePath(item),
-        format: makeYtdlpFormat(globalSetting.quality),
-        cookies: localSetting.cookiePath,
-        proxy: localSetting.useProxy ? localSetting.proxy : undefined,
-        jsRuntime: localSetting.denoPath
-          ? `deno:${localSetting.denoPath}`
-          : "node",
-        onProgress: (progress) => {
-          console.log(progress);
-          displayItem.progress = Math.floor(progress.percentage);
-          displayItem.state =
-            progress.percentage == 100 ? "finished" : "downloading";
-        },
-        onPaths: (paths) => {
-          console.log(paths);
-          displayItem.state = "finished";
-        },
+    console.log("添加下载任务到队列:", item.url);
+    downloadQueue
+      ?.add(displayItem)
+      .then((result) => {
+        console.log("下载成功:", item.title, result);
+      })
+      .catch((error) => {
+        console.error("下载失败:", item.title, error);
       });
-    }
   }
+
+  videoItems.unshift(...itemToDownload);
 }
 
 function openCreateDialog() {

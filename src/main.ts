@@ -4,11 +4,14 @@ import App from "./App.vue";
 import router from "./router";
 import { useDark } from "@vueuse/core";
 import * as ElementPlusIconsVue from "@element-plus/icons-vue";
+import { DownloadQueue } from "./download_queue";
 
 import "element-plus/dist/index.css";
 import "element-plus/theme-chalk/dark/css-vars.css";
 import "./style.css";
 
+// 创建下载队列实例
+const downloadQueue = new DownloadQueue();
 const app = createApp(App);
 
 // 注册所有图标
@@ -16,6 +19,7 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
   app.component(key, component);
 }
 
+app.provide("downloadQueue", downloadQueue);
 app.use(ElementPlus);
 app.use(router);
 app.mount("#app");

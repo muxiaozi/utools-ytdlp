@@ -63,8 +63,6 @@ window.ytdlp = {
       cookies: options.cookies,
       onProgress: options.onProgress,
       jsRuntime: options.jsRuntime,
-      printPaths: true,
-      onPaths: options.onPaths,
       additionalOptions: options.additionalOptions,
     });
   },
