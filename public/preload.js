@@ -4,24 +4,19 @@ const fs = require("node:fs");
 /**
  * 检测文件是否存在
  * @param {string} filePath
- * @returns
+ * @returns {boolean}
  */
-window.fileExists = async (filePath) => {
-  return fs.fileExistsSync(filePath);
+window.fileExists = (filePath) => {
+  return fs.existsSync(filePath);
 };
 
 /**
  * 删除文件
  * @param {string} filePath
- * @returns {Promise<void>}
+ * @returns {void}
  */
-window.deleteFile = async (filePath) => {
-  try {
-    await fs.unlink(filePath);
-  } catch (err) {
-    console.error("删除文件失败:", err);
-    throw err;
-  }
+window.deleteFile = (filePath) => {
+  fs.unlinkSync(filePath);
 };
 
 /**

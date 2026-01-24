@@ -177,10 +177,7 @@ const downloadComponents = async () => {
   try {
     downloadComponentsLoading.value = true;
     console.log("Checking YtDlp");
-    if (
-      !localSetting.ytdlpPath ||
-      !(await window.fileExists(localSetting.ytdlpPath))
-    ) {
+    if (!localSetting.ytdlpPath || !window.fileExists(localSetting.ytdlpPath)) {
       const outputPath = utools.getPath("temp") + "/utools-ytdlp" + exeExt();
       console.log("Downloading yt-dlp to:", outputPath);
       await window.downloadFile(ytdlpUrl(), outputPath);
@@ -190,7 +187,7 @@ const downloadComponents = async () => {
     console.log("Checking FFmpeg");
     if (
       !localSetting.ffmpegPath ||
-      !(await window.fileExists(localSetting.ffmpegPath))
+      !window.fileExists(localSetting.ffmpegPath)
     ) {
       const outputPath = utools.getPath("temp") + "/utools-ffmpeg" + exeExt();
       console.log("Downloading ffmpeg to:", outputPath);
@@ -199,10 +196,7 @@ const downloadComponents = async () => {
     }
 
     console.log("Checking Deno");
-    if (
-      !localSetting.denoPath ||
-      !(await window.fileExists(localSetting.denoPath))
-    ) {
+    if (!localSetting.denoPath || !window.fileExists(localSetting.denoPath)) {
       const outputPath = utools.getPath("temp") + "/utools-deno" + exeExt();
       console.log("Downloading deno to:", outputPath);
       await window.downloadFile(denoUrl(), outputPath);

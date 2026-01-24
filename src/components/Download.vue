@@ -393,14 +393,10 @@ function batchDelete() {
 
         // 如果选择删除源文件，则删除文件
         if (deleteSourceFile) {
-          try {
-            const filePath = makeFilePath(item);
-            if (await window.fileExists(filePath)) {
-              await window.deleteFile(filePath);
-              console.log("源文件已删除:", filePath);
-            }
-          } catch (err) {
-            console.error("删除源文件失败:", err);
+          const filePath = makeFilePath(item);
+          if (await window.fileExists(filePath)) {
+            window.deleteFile(filePath);
+            console.log("源文件已删除:", filePath);
           }
         }
       }
@@ -434,14 +430,10 @@ function deleteVideo(row: DisplayVideoItem) {
 
       // 如果选择删除源文件，则删除文件
       if (deleteSourceFile) {
-        try {
-          const filePath = makeFilePath(row);
-          if (await window.fileExists(filePath)) {
-            await window.deleteFile(filePath);
-            console.log("源文件已删除:", filePath);
-          }
-        } catch (err) {
-          console.error("删除源文件失败:", err);
+        const filePath = makeFilePath(row);
+        if (window.fileExists(filePath)) {
+          window.deleteFile(filePath);
+          console.log("源文件已删除:", filePath);
         }
       }
     })

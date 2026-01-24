@@ -48,5 +48,5 @@ interface Window {
 
   fileExists(filePath: string): boolean;
   downloadFile(url: string, outputPath: string): Promise<void>;
-  deleteFile(filePath: string): Promise<void>;
+  deleteFile(filePath: string): void;
 }
