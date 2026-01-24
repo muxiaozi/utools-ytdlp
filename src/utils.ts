@@ -1,5 +1,5 @@
 import { localSetting } from "./store";
-import { VideoQuality } from "./types";
+import { VideoItem, VideoQuality } from "./types";
 
 export async function isPrepared(): Promise<boolean> {
   if (window.ytdlp.isInitialized()) {
@@ -149,4 +149,8 @@ export function makeUploaderLink(
   }
 
   return template.replace("{id}", uploaderId);
+}
+
+export function makeFilePath(row: VideoItem) {
+  return localSetting.outputDir + "/" + row.id + ".mp4";
 }

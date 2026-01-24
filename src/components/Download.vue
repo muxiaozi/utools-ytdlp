@@ -204,13 +204,14 @@ import {
 } from "@element-plus/icons-vue";
 import PrepareDownload from "./PrepareDownload.vue";
 import { DisplayVideoItem, VideoItem } from "../types";
-import { globalSetting, localSetting, videoItems } from "../store";
+import { globalSetting, videoItems } from "../store";
 import {
   formatSize,
   formatDuration,
   isPrepared,
   formatQuality,
   makeUploaderLink,
+  makeFilePath,
 } from "../utils";
 import _ from "lodash";
 import { ElMessageBox } from "element-plus";
@@ -321,10 +322,6 @@ function openCreateDialog() {
 
 function openSetting() {
   router.push({ name: "setting" });
-}
-
-function makeFilePath(row: VideoItem) {
-  return localSetting.outputDir + "/" + row.id + ".mp4";
 }
 
 function openFileFolder(row: DisplayVideoItem) {

@@ -64,6 +64,7 @@ window.ytdlp = {
       onProgress: options.onProgress,
       jsRuntime: options.jsRuntime,
       additionalOptions: options.additionalOptions,
+      recodeVideo: "mp4",
     });
   },
   // 获取视频信息

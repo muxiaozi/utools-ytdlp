@@ -1,10 +1,6 @@
-import { DisplayVideoItem, VideoItem } from "./types";
+import { DisplayVideoItem } from "./types";
 import { globalSetting, localSetting } from "./store";
-import { makeYtdlpFormat } from "./utils";
-
-function makeFilePath(row: VideoItem) {
-  return localSetting.outputDir + "/" + row.id + ".mp4";
-}
+import { makeFilePath, makeYtdlpFormat } from "./utils";
 
 type DownloadResult = {
   filePath: string;
