@@ -30,7 +30,7 @@ declare class YtdlpManager {
       jsRuntime?: string;
       additionalOptions?: string[];
     },
-  ): Promise<string>;
+  ): Promise<any>;
   getInfoAsync(
     url: string,
     options: {

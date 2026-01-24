@@ -6,11 +6,20 @@ function makeFilePath(row: VideoItem) {
   return localSetting.outputDir + "/" + row.id + ".mp4";
 }
 
+type DownloadResult = {
+  filePath: string;
+  info: {
+    id: string;
+    original_url: string;
+    title: string;
+  }
+}
+
 // 下载队列管理器
 export class DownloadQueue {
   private queue: Array<{
     item: DisplayVideoItem;
-    resolve: (result: any) => void;
+    resolve: (result: DownloadResult) => void;
     reject: (error: any) => void;
   }> = [];
   private isProcessing = false;
@@ -18,7 +27,7 @@ export class DownloadQueue {
   // 添加任务到队列
   async add(
     item: DisplayVideoItem,
-  ): Promise<any> {
+  ): Promise<DownloadResult> {
     return new Promise((resolve, reject) => {
       this.queue.push({ item, resolve, reject });
       this.processQueue();
@@ -55,7 +64,7 @@ export class DownloadQueue {
   }
 
   // 执行下载
-  private async download(item: DisplayVideoItem): Promise<any> {
+  private async download(item: DisplayVideoItem): Promise<DownloadResult> {
     return new Promise((resolve, reject) => {
       let progressCompleted = false;
 
