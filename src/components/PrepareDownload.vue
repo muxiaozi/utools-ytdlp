@@ -97,6 +97,36 @@ const onClick = () => {
   }
 };
 
+function collectVideoItem(result: any): VideoItem[] {
+  let items: VideoItem[] = [];
+  if (result._type == "playlist") {
+    for (let item of result.entries) {
+      items.push(...collectVideoItem(item));
+    }
+  } else {
+    items.push({
+      id: result.id,
+      title: result.title,
+      url: result.original_url,
+      time: new Date().toLocaleString(),
+      size: result.filesize_approx,
+      thumbnail: result.thumbnail,
+      type: "video",
+      platform: result.extractor_key,
+      quality: result.format,
+      width: result.width,
+      height: result.height,
+      uploader: result.uploader,
+      uploader_id: result.uploader_id,
+      description: result.description,
+      duration: result.duration,
+      fps: result.fps,
+      ext: result.ext,
+    });
+  }
+  return items;
+}
+
 const analyzeLink = async () => {
   tableData.value = [];
   console.log("分析链接:", url.value);
@@ -105,52 +135,12 @@ const analyzeLink = async () => {
     let result = await window.ytdlp.getInfoAsync(url.value, {
       cookies: localSetting.cookiePath,
       proxy: localSetting.useProxy ? localSetting.proxy : undefined,
-      jsRuntime: localSetting.denoPath ? `deno:${localSetting.denoPath}` : "node",
+      jsRuntime: localSetting.denoPath
+        ? `deno:${localSetting.denoPath}`
+        : "node",
     });
     console.log("分析结果:", result);
-    if (result._type == "video") {
-      tableData.value.push({
-        id: result.id,
-        title: result.title,
-        url: result.original_url,
-        time: new Date().toLocaleString(),
-        size: result.filesize_approx,
-        thumbnail: result.thumbnail,
-        type: "video",
-        platform: result.extractor_key,
-        quality: result.format,
-        width: result.width,
-        height: result.height,
-        uploader: result.uploader,
-        uploader_id: result.uploader_id,
-        description: result.description,
-        duration: result.duration,
-        fps: result.fps,
-        ext: result.ext,
-      });
-    } else if (result._type == "playlist") {
-      for (let item of result.entries) {
-        tableData.value.push({
-          id: item.id,
-          title: item.title,
-          url: item.original_url,
-          time: new Date().toLocaleString(),
-          size: item.filesize_approx,
-          thumbnail: item.thumbnail,
-          type: "video",
-          platform: item.extractor_key,
-          quality: item.format,
-          width: item.width,
-          height: item.height,
-          uploader: item.uploader,
-          uploader_id: item.uploader_id,
-          description: item.description,
-          duration: item.duration,
-          fps: item.fps,
-          ext: item.ext,
-        });
-      }
-    }
+    tableData.value = collectVideoItem(result);
     btnState.value = "download";
   } catch (error) {
     console.error("分析链接出错:", error);
