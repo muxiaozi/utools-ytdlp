@@ -255,7 +255,7 @@ function openLink(url: string) {
 }
 
 function openUploaderLink(platform: string, id: string) {
-  const link = makeUploaderLink(id, platform);
+  const link = makeUploaderLink(platform, id);
   if (link) {
     openLink(link);
   }

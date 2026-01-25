@@ -28,7 +28,10 @@ export async function isPrepared(): Promise<boolean> {
   return true;
 }
 
-export function formatDuration(seconds: number): string {
+export function formatDuration(seconds: number | undefined): string {
+  if (!seconds) {
+    return "-";
+  }
   const hrs = Math.floor(seconds / 3600);
   const mins = Math.floor((seconds % 3600) / 60);
   const secs = Math.trunc(seconds % 60);
@@ -46,7 +49,10 @@ export function formatSize(bytes: number | undefined): string {
   else return (bytes / (1024 * 1024 * 1024)).toFixed(2) + " GB";
 }
 
-export function formatQuality(format: string): string {
+export function formatQuality(format: string | undefined): string {
+  if (!format) {
+    return "-";
+  }
   const qualitParts = format.split("+");
   return qualitParts.length > 0 ? qualitParts[0] : "-";
 }
@@ -128,13 +134,13 @@ export function exeExt(): string {
 
 /**
  * 根据UP主ID和平台生成UP主链接
- * @param uploaderId UP主ID
  * @param platform 平台
+ * @param uploaderId UP主ID
  * @returns
  */
 export function makeUploaderLink(
-  uploaderId: string,
   platform: string,
+  uploaderId: string,
 ): string | undefined {
   const DICT: Record<string, string> = {
     BiliBili: "https://space.bilibili.com/{id}",
@@ -152,5 +158,5 @@ export function makeUploaderLink(
 }
 
 export function makeFilePath(row: VideoItem) {
-  return localSetting.outputDir + "/" + row.id + ".mp4";
+  return window.pathJoin(localSetting.outputDir, row.id + ".mp4");
 }

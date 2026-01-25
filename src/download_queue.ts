@@ -1,6 +1,7 @@
 import { DisplayVideoItem } from "./types";
 import { globalSetting, localSetting } from "./store";
 import { makeFilePath, makeYtdlpFormat } from "./utils";
+import _ from "lodash";
 
 type DownloadResult = {
   filePath: string;
@@ -8,8 +9,8 @@ type DownloadResult = {
     id: string;
     original_url: string;
     title: string;
-  }
-}
+  };
+};
 
 // 下载队列管理器
 export class DownloadQueue {
@@ -21,9 +22,7 @@ export class DownloadQueue {
   private isProcessing = false;
 
   // 添加任务到队列
-  async add(
-    item: DisplayVideoItem,
-  ): Promise<DownloadResult> {
+  async add(item: DisplayVideoItem): Promise<DownloadResult> {
     return new Promise((resolve, reject) => {
       this.queue.push({ item, resolve, reject });
       this.processQueue();
@@ -81,7 +80,9 @@ export class DownloadQueue {
             ? `deno:${localSetting.denoPath}`
             : "node",
           onProgress: (progress) => {
-            item.progress = Math.floor(progress.percentage);
+            item.progress = _.isNumber(progress.percentage)
+              ? Math.floor(progress.percentage)
+              : 0;
           },
         })
         .then((result) => {
