@@ -427,7 +427,7 @@ function deleteVideo(row: DisplayVideoItem) {
 
 function calculateTableHeight() {
   // 操作栏高度约为 40px，加上一些边距和padding，预留 60px
-  const operationBarHeight = 90;
+  const operationBarHeight = 100;
   tableHeight.value = window.innerHeight - operationBarHeight;
 }
 
@@ -470,7 +470,9 @@ onUnmounted(() => {
 
 .operation-bar {
   width: 100%;
+  height: 48px;
   display: flex;
+  align-items: center;
   justify-content: space-between;
   border-top: 1px solid var(--el-border-color-light);
   border-bottom: 1px solid var(--el-border-color-light);
