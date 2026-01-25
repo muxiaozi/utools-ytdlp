@@ -49,5 +49,6 @@ interface Window {
   deleteFile(filePath: string): void;
   mkdir(dirPath: string): void;
   pathJoin(...args: string[]): string;
+  chmod(path: string, mode: string | number): void;
   downloadFileAsync(url: string, outputPath: string): Promise<void>;
 }

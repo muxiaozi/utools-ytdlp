@@ -192,6 +192,9 @@ const downloadComponents = async () => {
       console.log("Downloading yt-dlp to:", outputPath);
       await window.downloadFileAsync(ytdlpUrl(), outputPath);
       localSetting.ytdlpPath = outputPath;
+      try {
+        window.chmod(outputPath, 0o755);
+      } catch (_err) {}
     }
 
     console.log("Checking FFmpeg");
@@ -203,6 +206,9 @@ const downloadComponents = async () => {
       console.log("Downloading ffmpeg to:", outputPath);
       await window.downloadFileAsync(ffmpegUrl(), outputPath);
       localSetting.ffmpegPath = outputPath;
+      try {
+        window.chmod(outputPath, 0o755);
+      } catch (_err) {}
     }
 
     console.log("Checking Deno");
@@ -211,6 +217,9 @@ const downloadComponents = async () => {
       console.log("Downloading deno to:", outputPath);
       await window.downloadFileAsync(denoUrl(), outputPath);
       localSetting.denoPath = outputPath;
+      try {
+        window.chmod(outputPath, 0o755);
+      } catch (_err) {}
     }
 
     window.ytdlp.init({

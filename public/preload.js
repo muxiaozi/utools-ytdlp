@@ -14,7 +14,6 @@ window.fileExists = (filePath) => {
 /**
  * 删除文件
  * @param {string} filePath
- * @returns {void}
  */
 window.deleteFile = (filePath) => {
   fs.unlinkSync(filePath);
@@ -22,11 +21,20 @@ window.deleteFile = (filePath) => {
 
 /**
  * 创建文件夹
- * @param {*} dirPath 文件夹路径
+ * @param {string} dirPath 文件夹路径
  */
 window.mkdir = (dirPath) => {
   fs.mkdirSync(dirPath, { recursive: true });
 };
+
+/**
+ * 设置文件权限
+ * @param {string} path 文件路径
+ * @param {string | number} mode 文件权限
+ */
+window.chmod = (path, mode) => {
+  fs.chmodSync(path, mode);
+}
 
 /**
  * 合并路径
