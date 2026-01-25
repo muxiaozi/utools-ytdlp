@@ -5,6 +5,7 @@ import router from "./router";
 import { useDark } from "@vueuse/core";
 import * as ElementPlusIconsVue from "@element-plus/icons-vue";
 import { DownloadQueue } from "./download_queue";
+import zhCn from "element-plus/es/locale/lang/zh-cn";
 
 import "element-plus/dist/index.css";
 import "element-plus/theme-chalk/dark/css-vars.css";
@@ -20,7 +21,9 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 }
 
 app.provide("downloadQueue", downloadQueue);
-app.use(ElementPlus);
+app.use(ElementPlus, {
+  locale: zhCn,
+});
 app.use(router);
 app.mount("#app");
 
