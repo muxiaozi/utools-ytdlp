@@ -11,6 +11,7 @@
         </template>
       </div>
       <div>
+        <el-button text :icon="QuestionFilled" @click="openHelper"></el-button>
         <el-button text :icon="Setting" @click="openSetting"></el-button>
       </div>
     </div>
@@ -201,6 +202,7 @@ import {
   Document,
   Delete,
   Refresh as Retry,
+  QuestionFilled,
 } from "@element-plus/icons-vue";
 import PrepareDownload from "./PrepareDownload.vue";
 import { DisplayVideoItem, VideoItem } from "../types";
@@ -322,6 +324,10 @@ function openCreateDialog() {
 
 function openSetting() {
   router.push({ name: "setting" });
+}
+
+function openHelper() {
+  router.push({ name: "helper" });
 }
 
 function openFileFolder(row: DisplayVideoItem) {

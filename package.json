@@ -13,11 +13,13 @@
     "@vueuse/core": "^14.1.0",
     "element-plus": "^2.12.0",
     "lodash": "^4.17.21",
+    "marked": "^17.0.1",
     "vue": "^3.4.21",
     "vue-router": "^4.3.2"
   },
   "devDependencies": {
     "@types/lodash": "^4.17.23",
+    "@types/marked": "^6.0.0",
     "@vitejs/plugin-vue": "^6.0.3",
     "typescript": "^5.2.2",
     "utools-api-types": "^7.2.0",

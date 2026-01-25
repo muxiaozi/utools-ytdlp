@@ -20,6 +20,9 @@ importers:
       lodash:
         specifier: ^4.17.21
         version: 4.17.21
+      marked:
+        specifier: ^17.0.1
+        version: 17.0.1
       vue:
         specifier: ^3.4.21
         version: 3.5.22(typescript@5.9.3)
@@ -30,6 +33,9 @@ importers:
       '@types/lodash':
         specifier: ^4.17.23
         version: 4.17.23
+      '@types/marked':
+        specifier: ^6.0.0
+        version: 6.0.0
       '@vitejs/plugin-vue':
         specifier: ^6.0.3
         version: 6.0.3(vite@7.2.7)(vue@3.5.22(typescript@5.9.3))
@@ -378,6 +384,10 @@ packages:
   '@types/lodash@4.17.23':
     resolution: {integrity: sha512-RDvF6wTulMPjrNdCoYRC8gNR880JNGT8uB+REUpC2Ns4pRqQJhGz90wh7rgdXDPpCczF3VGktDuFGVnz8zP7HA==}
 
+  '@types/marked@6.0.0':
+    resolution: {integrity: sha512-jmjpa4BwUsmhxcfsgUit/7A9KbrC48Q0q8KvnY107ogcjGgTFDlIL3RpihNpx2Mu1hM4mdFQjoVc4O6JoGKHsA==}
+    deprecated: This is a stub types definition. marked provides its own type definitions, so you do not need this installed.
+
   '@types/web-bluetooth@0.0.16':
     resolution: {integrity: sha512-oh8q2Zc32S6gd/j50GowEjKLoOVOwHP/bWVjKJInBwQqdOYMdPrf1oVlelTlyfFK3CKxL1uahMDAr+vy8T7yMQ==}
 
@@ -520,6 +530,11 @@ packages:
 
   magic-string@0.30.19:
     resolution: {integrity: sha512-2N21sPY9Ws53PZvsEpVtNuSW+ScYbQdp4b9qUaL+9QkHUrGFKo56Lg9Emg5s9V/qrtNBmiR01sYhUOwu3H+VOw==}
+
+  marked@17.0.1:
+    resolution: {integrity: sha512-boeBdiS0ghpWcSwoNm/jJBwdpFaMnZWRzjA6SkUMYb40SVaN1x7mmfGKp0jvexGcx+7y2La5zRZsYFZI6Qpypg==}
+    engines: {node: '>= 20'}
+    hasBin: true
 
   memoize-one@6.0.0:
     resolution: {integrity: sha512-rkpe71W0N0c0Xz6QD0eJETuWAJGnJ9afsl1srmwPrI+yBCkge5EycXXbYRyvL29zZVUWQCY7InPRCv3GDXuZNw==}
@@ -833,6 +848,10 @@ snapshots:
 
   '@types/lodash@4.17.23': {}
 
+  '@types/marked@6.0.0':
+    dependencies:
+      marked: 17.0.1
+
   '@types/web-bluetooth@0.0.16': {}
 
   '@types/web-bluetooth@0.0.21': {}
@@ -1036,6 +1055,8 @@ snapshots:
   magic-string@0.30.19:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  marked@17.0.1: {}
 
   memoize-one@6.0.0: {}
 
