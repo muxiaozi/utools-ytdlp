@@ -173,14 +173,20 @@ const selectCookieFile = () => {
 };
 
 const downloadComponents = async () => {
-  console.log("downloadComponents");
   try {
+    const componentsDir = window.pathJoin(
+      utools.getPath("appData"),
+      "utools-ytdlp",
+    );
+    console.log("make dir", componentsDir);
+    window.mkdir(componentsDir);
+
     downloadComponentsLoading.value = true;
     console.log("Checking YtDlp");
     if (!localSetting.ytdlpPath || !window.fileExists(localSetting.ytdlpPath)) {
-      const outputPath = utools.getPath("temp") + "/utools-ytdlp" + exeExt();
+      const outputPath = window.pathJoin(componentsDir, "yt-dlp" + exeExt());
       console.log("Downloading yt-dlp to:", outputPath);
-      await window.downloadFile(ytdlpUrl(), outputPath);
+      await window.downloadFileAsync(ytdlpUrl(), outputPath);
       localSetting.ytdlpPath = outputPath;
     }
 
@@ -189,17 +195,17 @@ const downloadComponents = async () => {
       !localSetting.ffmpegPath ||
       !window.fileExists(localSetting.ffmpegPath)
     ) {
-      const outputPath = utools.getPath("temp") + "/utools-ffmpeg" + exeExt();
+      const outputPath = window.pathJoin(componentsDir, "ffmpeg" + exeExt());
       console.log("Downloading ffmpeg to:", outputPath);
-      await window.downloadFile(ffmpegUrl(), outputPath);
+      await window.downloadFileAsync(ffmpegUrl(), outputPath);
       localSetting.ffmpegPath = outputPath;
     }
 
     console.log("Checking Deno");
     if (!localSetting.denoPath || !window.fileExists(localSetting.denoPath)) {
-      const outputPath = utools.getPath("temp") + "/utools-deno" + exeExt();
+      const outputPath = window.pathJoin(componentsDir, "deno" + exeExt());
       console.log("Downloading deno to:", outputPath);
-      await window.downloadFile(denoUrl(), outputPath);
+      await window.downloadFileAsync(denoUrl(), outputPath);
       localSetting.denoPath = outputPath;
     }
 

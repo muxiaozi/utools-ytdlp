@@ -1,5 +1,6 @@
 const { YtDlp, helpers } = require("./ytdlp-nodejs");
 const fs = require("node:fs");
+const path = require("node:path");
 
 /**
  * 检测文件是否存在
@@ -20,13 +21,29 @@ window.deleteFile = (filePath) => {
 };
 
 /**
+ * 创建文件夹
+ * @param {*} dirPath 文件夹路径
+ */
+window.mkdir = (dirPath) => {
+  fs.mkdirSync(dirPath, { recursive: true });
+};
+
+/**
+ * 合并路径
+ * @param {string[]} args
+ */
+window.pathJoin = (...args) => {
+  return path.join(...args);
+}
+
+/**
  * 异步下载文件
  * @param {string} url 下载链接
  * @param {string} outputPath 文件保存路径
  * 
  * @returns {Promise<void>}
  */
-window.downloadFile = async (url, outputPath) => {
+window.downloadFileAsync = async (url, outputPath) => {
   return await helpers.downloadFile(url, outputPath);
 };
 

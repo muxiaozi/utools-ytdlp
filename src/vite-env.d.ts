@@ -46,6 +46,8 @@ interface Window {
   ytdlp: YtdlpManager;
 
   fileExists(filePath: string): boolean;
-  downloadFile(url: string, outputPath: string): Promise<void>;
   deleteFile(filePath: string): void;
+  mkdir(dirPath: string): void;
+  pathJoin(...args: string[]): string;
+  downloadFileAsync(url: string, outputPath: string): Promise<void>;
 }
