@@ -1,6 +1,22 @@
 <template>
   <div class="setting-container">
-    <el-form label-width="auto">
+    <el-page-header @back="goBack" class="page-header">
+      <template #content>
+        <span> 设置 </span>
+      </template>
+      <template #extra>
+        <el-button
+          v-if="downloadComponentsVisible"
+          @click="downloadComponents"
+          :loading="downloadComponentsLoading"
+          >安装缺失组件</el-button
+        >
+      </template>
+    </el-page-header>
+
+    <el-divider style="margin: 0px" />
+
+    <el-form label-width="auto" class="setting-form">
       <el-form-item label="下载质量">
         <el-radio-group v-model="globalSetting.quality">
           <el-radio value="highest">最高</el-radio>
@@ -56,18 +72,6 @@
         </div>
       </el-form-item>
     </el-form>
-
-    <el-divider />
-
-    <el-form-item class="button-group">
-      <el-button
-        v-if="downloadComponentsVisible"
-        @click="downloadComponents"
-        :loading="downloadComponentsLoading"
-        >安装缺失组件</el-button
-      >
-      <el-button type="primary" @click="onSubmit">确定</el-button>
-    </el-form-item>
   </div>
 </template>
 
@@ -108,7 +112,7 @@ onMounted(async () => {
   }
 });
 
-const onSubmit = () => {
+const goBack = () => {
   router.back();
 };
 
@@ -231,18 +235,27 @@ const downloadComponents = async () => {
 
 <style scoped>
 .setting-container {
-  padding: 20px 20px;
   border-top: 1px solid var(--el-border-color-light);
+}
+
+.page-header {
+  margin: 8px 12px;
+  min-height: 32px;
+}
+
+.page-header :deep(.el-page-header__content) {
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+}
+
+.setting-form {
+  margin: 12px;
 }
 
 .singleline-box {
   display: flex;
   gap: 10px;
   width: 100%;
-}
-
-.button-group :deep(.el-form-item__content) {
-  display: flex;
-  justify-content: flex-end;
 }
 </style>
