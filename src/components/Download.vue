@@ -117,17 +117,14 @@
     />
 
     <el-dialog
-      v-model="createTaskDialogVisible"
+      v-model="prepareDownload.dialogVisible"
       title="新建下载任务"
       width="90%"
       :close-on-click-modal="false"
+      @closed="prepareDownload.url = ''"
       style="max-width: 1000px"
     >
-      <prepare-download
-        :key="createTaskDialogKey"
-        @download="startDownload"
-        :url="url"
-      />
+      <prepare-download :key="createTaskDialogKey" @download="startDownload" />
     </el-dialog>
 
     <el-drawer
@@ -194,7 +191,7 @@
 
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, reactive, computed, inject } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { useRouter } from "vue-router";
 import {
   Setting,
   Plus,
@@ -206,7 +203,7 @@ import {
 } from "@element-plus/icons-vue";
 import PrepareDownload from "./PrepareDownload.vue";
 import { DisplayVideoItem, VideoItem } from "../types";
-import { globalSetting, videoItems } from "../store";
+import { prepareDownload, globalSetting, videoItems } from "../store";
 import {
   formatSize,
   formatDuration,
@@ -232,12 +229,10 @@ const tableData = computed(() => {
   }
   return items;
 });
-const createTaskDialogVisible = ref(false);
 const createTaskDialogKey = ref(0);
 const videoDetailVisible = ref(false);
 const selectVideo = ref<DisplayVideoItem>();
 const router = useRouter();
-const route = useRoute();
 const multipleSelection = ref<DisplayVideoItem[]>([]);
 const tableHeight = ref(400);
 const batchDeleteEnabled = computed(() => {
@@ -246,11 +241,6 @@ const batchDeleteEnabled = computed(() => {
 const tableCurrentPage = ref(1);
 const tablePageSize = ref(10);
 const downloadQueue = inject<DownloadQueue>("downloadQueue");
-
-const url =
-  typeof route.query?.url === "string"
-    ? decodeURIComponent(route.query.url)
-    : undefined;
 
 function openLink(url: string) {
   utools.shellOpenExternal(url);
@@ -276,7 +266,6 @@ async function onSelectionChange(items: DisplayVideoItem[]) {
 }
 
 async function startDownload(items: VideoItem[]) {
-  createTaskDialogVisible.value = false;
   const itemToDownload: DisplayVideoItem[] = [];
   for (const item of items) {
     let displayItem = videoItems.find((v) => v.id === item.id);
@@ -319,7 +308,7 @@ async function startDownload(items: VideoItem[]) {
 
 function openCreateDialog() {
   createTaskDialogKey.value++;
-  createTaskDialogVisible.value = true;
+  prepareDownload.dialogVisible = true;
 }
 
 function openSetting() {
@@ -447,10 +436,6 @@ onMounted(async () => {
   if (!(await isPrepared())) {
     router.push({ name: "setting" });
     return;
-  }
-
-  if (url) {
-    createTaskDialogVisible.value = true;
   }
 });
 

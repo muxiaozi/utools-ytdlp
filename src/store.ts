@@ -65,4 +65,13 @@ for (let i = 0; i < globalSetting.videoCount; i++) {
   });
 }
 
-export { localSetting, globalSetting, videoItems };
+// PrepareDownload
+const prepareDownload = reactive<{
+  url: string;
+  dialogVisible: boolean;
+}>({
+  url: "",
+  dialogVisible: false,
+});
+
+export { localSetting, globalSetting, videoItems, prepareDownload };

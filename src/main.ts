@@ -6,6 +6,7 @@ import { useDark } from "@vueuse/core";
 import * as ElementPlusIconsVue from "@element-plus/icons-vue";
 import { DownloadQueue } from "./download_queue";
 import zhCn from "element-plus/es/locale/lang/zh-cn";
+import { prepareDownload } from "./store";
 
 import "element-plus/dist/index.css";
 import "element-plus/theme-chalk/dark/css-vars.css";
@@ -35,33 +36,19 @@ utools.onPluginEnter(async ({ code, type, payload }) => {
     switch (type) {
       case "window": {
         let url = await utools.readCurrentBrowserUrl();
-        router.push({
-          name: "download",
-          query: {
-            url: encodeURIComponent(url),
-          },
-        });
+        prepareDownload.url = url;
+        prepareDownload.dialogVisible = true;
         break;
       }
       case "regex": {
-        router.push({
-          name: "download",
-          query: {
-            url: encodeURIComponent(payload),
-          },
-        });
-        break;
-      }
-      default: {
-        router.push({
-          name: "download",
-        });
+        prepareDownload.url = payload;
+        prepareDownload.dialogVisible = true;
         break;
       }
     }
-  } else {
-    router.push({ name: "download" });
   }
+
+  router.push({ name: "download" });
 });
 
 utools.onPluginOut((processExit) => {

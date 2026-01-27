@@ -2,7 +2,7 @@
   <div>
     <div style="display: flex; gap: 10px">
       <el-input
-        v-model="url"
+        v-model="prepareDownload.url"
         clearable
         placeholder="请输入视频链接"
         @input="onUrlChanged"
@@ -47,12 +47,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed } from "vue";
 import { VideoItem } from "../types";
 import { formatSize, formatDuration, formatQuality } from "../utils";
-import { localSetting } from "../store";
+import { localSetting, prepareDownload } from "../store";
 
-const url = ref("");
 const btnState = ref<"analyize" | "download">("analyize");
 const btnText = computed(() => {
   return btnState.value === "analyize" ? "分析" : "下载";
@@ -64,22 +63,13 @@ const tableData = ref<VideoItem[]>([]);
 const multipleSelection = ref<VideoItem[]>([]);
 const btnEnabled = computed(() => {
   return (
-    (btnState.value === "analyize" && url.value !== "") ||
+    (btnState.value === "analyize" && prepareDownload.url != "") ||
     (btnState.value === "download" && multipleSelection.value.length > 0)
   );
 });
 const btnLoading = ref(false);
 
 const emits = defineEmits(["download"]);
-const props = defineProps<{
-  url?: string | null;
-}>();
-
-onMounted(async () => {
-  if (props.url) {
-    url.value = props.url;
-  }
-});
 
 const onUrlChanged = (_value: string) => {
   btnState.value = "analyize";
@@ -94,6 +84,7 @@ const onClick = () => {
     analyzeLink();
   } else {
     emits("download", multipleSelection.value);
+    prepareDownload.dialogVisible = false;
   }
 };
 
@@ -129,10 +120,10 @@ function collectVideoItem(result: any): VideoItem[] {
 
 const analyzeLink = async () => {
   tableData.value = [];
-  console.log("分析链接:", url.value);
+  console.log("分析链接:", prepareDownload.url);
   try {
     btnLoading.value = true;
-    let result = await window.ytdlp.getInfoAsync(url.value, {
+    let result = await window.ytdlp.getInfoAsync(prepareDownload.url, {
       cookies: localSetting.cookiePath,
       proxy: localSetting.useProxy ? localSetting.proxy : undefined,
       jsRuntime: localSetting.denoPath
