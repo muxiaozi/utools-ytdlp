@@ -11,6 +11,7 @@ import { prepareDownload } from "./store";
 import "element-plus/dist/index.css";
 import "element-plus/theme-chalk/dark/css-vars.css";
 import "./style.css";
+import { isPrepared } from "./utils";
 
 // 创建下载队列实例
 const downloadQueue = new DownloadQueue();
@@ -48,7 +49,10 @@ utools.onPluginEnter(async ({ code, type, payload }) => {
     }
   }
 
-  router.push({ name: "download" });
+  if (!(await isPrepared())) {
+    router.push({ name: "setting" });
+    return;
+  }
 });
 
 utools.onPluginOut((processExit) => {

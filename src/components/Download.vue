@@ -207,7 +207,6 @@ import { prepareDownload, globalSetting, videoItems } from "../store";
 import {
   formatSize,
   formatDuration,
-  isPrepared,
   formatQuality,
   makeUploaderLink,
   makeFilePath,
@@ -432,11 +431,6 @@ onMounted(async () => {
 
   // 监听窗口大小变化
   window.addEventListener("resize", handleResize);
-
-  if (!(await isPrepared())) {
-    router.push({ name: "setting" });
-    return;
-  }
 });
 
 onUnmounted(() => {
