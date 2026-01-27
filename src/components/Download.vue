@@ -121,7 +121,7 @@
       title="新建下载任务"
       width="90%"
       :close-on-click-modal="false"
-      @closed="prepareDownload.url = ''"
+      @closed="onPrepareDownloadDialogClosed"
       style="max-width: 1000px"
     >
       <prepare-download :key="createTaskDialogKey" @download="startDownload" />
@@ -260,6 +260,11 @@ function onSizeChange(size: number) {
   tablePageSize.value = size;
 }
 
+function onPrepareDownloadDialogClosed() {
+  prepareDownload.url = "";
+  createTaskDialogKey.value++;
+}
+
 async function onSelectionChange(items: DisplayVideoItem[]) {
   multipleSelection.value = items;
 }
@@ -306,7 +311,6 @@ async function startDownload(items: VideoItem[]) {
 }
 
 function openCreateDialog() {
-  createTaskDialogKey.value++;
   prepareDownload.dialogVisible = true;
 }
 
