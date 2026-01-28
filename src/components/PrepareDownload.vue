@@ -51,6 +51,7 @@ import { ref, computed } from "vue";
 import { VideoItem } from "../types";
 import { formatSize, formatDuration, formatQuality } from "../utils";
 import { localSetting, prepareDownload } from "../store";
+import { ElMessageBox } from "element-plus";
 
 const btnState = ref<"analyize" | "download">("analyize");
 const btnText = computed(() => {
@@ -135,6 +136,15 @@ const analyzeLink = async () => {
     btnState.value = "download";
   } catch (error) {
     console.error("分析链接出错:", error);
+    ElMessageBox.alert(
+      `
+    1. 检查链接是否正确<br>
+    2. 检查是否设置了代理<br>
+    3. 检查是否设置了cookie
+    `,
+      "分析链接失败",
+      { type: "error", dangerouslyUseHTMLString: true },
+    );
   } finally {
     btnLoading.value = false;
   }
