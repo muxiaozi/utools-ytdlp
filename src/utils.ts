@@ -1,5 +1,5 @@
-import { localSetting } from "./store";
-import { VideoItem, VideoQuality } from "./types";
+import { componentState, localSetting } from "./store";
+import { ComponentMetadata, VideoItem, VideoQuality } from "./types";
 
 export async function isPrepared(): Promise<boolean> {
   if (window.ytdlp.isInitialized()) {
@@ -84,49 +84,29 @@ export function makeYtdlpFormat(quality: VideoQuality): string {
   }
 }
 
-export function ytdlpUrl(): string {
+export async function fetchComponentMetadata(): Promise<ComponentMetadata> {
+  let response = await fetch(
+    "https://pan.cheshuimanong.com/f/MMGCb/metadata.json",
+  );
+  const json = await response.json();
   if (utools.isWindows()) {
-    return "https://pan.cheshuimanong.com/f/a7mCJ/yt-dlp_win64.exe";
+    return json["windows"];
   } else if (utools.isMacOS()) {
-    return "https://pan.cheshuimanong.com/f/42nU4/yt-dlp_macos";
+    return json["macos"];
   } else if (utools.isLinux()) {
-    return "https://pan.cheshuimanong.com/f/vjghp/yt-dlp_linux";
+    return json["linux"];
   } else {
     throw new Error("Unsupported platform");
   }
 }
 
-export function ffmpegUrl(): string {
+export function exename(basename: string): string {
   if (utools.isWindows()) {
-    return "https://pan.cheshuimanong.com/f/Ka0Ib/ffmpeg_win64.exe";
+    return `${basename}.exe`;
   } else if (utools.isMacOS()) {
-    return "https://pan.cheshuimanong.com/f/eE8tj/ffmpeg_macos";
+    return `${basename}`;
   } else if (utools.isLinux()) {
-    return "https://pan.cheshuimanong.com/f/zxZUx/ffmpeg_linux";
-  } else {
-    throw new Error("Unsupported platform");
-  }
-}
-
-export function denoUrl(): string {
-  if (utools.isWindows()) {
-    return "https://pan.cheshuimanong.com/f/GyJSw/deno_win64.exe";
-  } else if (utools.isMacOS()) {
-    return "https://pan.cheshuimanong.com/f/Qx4tk/deno_macos";
-  } else if (utools.isLinux()) {
-    return "https://pan.cheshuimanong.com/f/BGjtV/deno_linux";
-  } else {
-    throw new Error("Unsupported platform");
-  }
-}
-
-export function exeExt(): string {
-  if (utools.isWindows()) {
-    return ".exe";
-  } else if (utools.isMacOS()) {
-    return "";
-  } else if (utools.isLinux()) {
-    return "";
+    return `${basename}`;
   } else {
     throw new Error("Unsupported platform");
   }
@@ -159,4 +139,21 @@ export function makeUploaderLink(
 
 export function makeFilePath(row: VideoItem) {
   return window.pathJoin(localSetting.outputDir, row.id + "." + row.ext);
+}
+
+export function getUpdatableComponents(): Array<string> {
+  if (!componentState.metadata) {
+    return [];
+  }
+  let updateList = [];
+  if (localSetting.ytdlpSha256 !== componentState.metadata!.ytdlp.sha256) {
+    updateList.push("yt-dlp");
+  }
+  if (localSetting.ffmpegSha256 !== componentState.metadata!.ffmpeg.sha256) {
+    updateList.push("ffmpeg");
+  }
+  if (localSetting.denoSha256 !== componentState.metadata!.deno.sha256) {
+    updateList.push("deno");
+  }
+  return updateList;
 }

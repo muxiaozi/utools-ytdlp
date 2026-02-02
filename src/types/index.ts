@@ -32,8 +32,13 @@ export type VideoItem = {
 
 export type LocalSetting = {
   ytdlpPath: string;
+  ytdlpSha256: string;
   ffmpegPath: string;
+  ffmpegSha256: string;
   denoPath: string;
+  denoSha256: string;
+  aria2cPath: string;
+  aria2cSha256: string;
   outputDir: string;
   proxy: string;
   useProxy: boolean;
@@ -51,3 +56,22 @@ export type DisplayVideoItem = VideoItem & {
   progress: number;
   index: number;
 };
+
+export type ComponentMetadata = {
+  ytdlp: {
+    url: string;
+    sha256: string;
+  },
+  ffmpeg: {
+    url: string;
+    sha256: string;
+  },
+  deno: {
+    url: string;
+    sha256: string;
+  },
+  aria2c: {
+    url: string;
+    sha256: string;
+  }
+}

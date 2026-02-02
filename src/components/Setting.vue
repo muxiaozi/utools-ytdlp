@@ -7,9 +7,9 @@
       <template #extra>
         <el-button
           v-if="downloadComponentsVisible"
-          @click="downloadComponents"
+          @click="installComponents"
           :loading="downloadComponentsLoading"
-          >安装缺失组件</el-button
+          >安装组件</el-button
         >
       </template>
     </el-page-header>
@@ -30,7 +30,7 @@
       </el-form-item>
       <el-form-item label="下载目录">
         <div class="singleline-box">
-          <el-input v-model="localSetting.outputDir" style="flex: 1" />
+          <el-input v-model="localSetting.outputDir" readonly style="flex: 1" />
           <el-button-group>
             <el-button @click="selectOutputDir">选择目录</el-button>
             <el-button @click="openOutputDir">打开目录</el-button>
@@ -39,25 +39,37 @@
       </el-form-item>
       <el-form-item label="YtDlp 路径">
         <div class="singleline-box">
-          <el-input v-model="localSetting.ytdlpPath" />
+          <el-input
+            v-model="localSetting.ytdlpPath"
+            readonly
+            :suffix-icon="ytdlpPathIcon"
+          />
           <el-button @click="selectYtdlpFile">选择文件</el-button>
         </div>
       </el-form-item>
       <el-form-item label="FFmpeg 路径">
         <div class="singleline-box">
-          <el-input v-model="localSetting.ffmpegPath" />
+          <el-input
+            v-model="localSetting.ffmpegPath"
+            readonly
+            :suffix-icon="ffmpegPathIcon"
+          />
           <el-button @click="selectFFmpegFile">选择文件</el-button>
         </div>
       </el-form-item>
       <el-form-item label="Deno 路径">
         <div class="singleline-box">
-          <el-input v-model="localSetting.denoPath" />
+          <el-input
+            v-model="localSetting.denoPath"
+            readonly
+            :suffix-icon="denoPathIcon"
+          />
           <el-button @click="selectDenoFile">选择文件</el-button>
         </div>
       </el-form-item>
       <el-form-item label="Cookie 路径">
         <div class="singleline-box">
-          <el-input v-model="localSetting.cookiePath" />
+          <el-input v-model="localSetting.cookiePath" readonly />
           <el-button @click="selectCookieFile">选择文件</el-button>
         </div>
       </el-form-item>
@@ -79,21 +91,59 @@
 import { onMounted, computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { localSetting, globalSetting } from "../store";
-import { denoUrl, exeExt, ffmpegUrl, ytdlpUrl } from "../utils";
+import { localSetting, globalSetting, componentState } from "../store";
+import { getUpdatableComponents, exename } from "../utils";
 
 const router = useRouter();
 const downloadComponentsVisible = computed(() => {
   return (
     !localSetting.ytdlpPath ||
     !localSetting.ffmpegPath ||
-    !localSetting.denoPath
+    !localSetting.denoPath ||
+    getUpdatableComponents().length > 0
   );
 });
 const downloadComponentsLoading = ref(false);
+const ytdlpPathIcon = computed(() => {
+  if (!componentState.metadata) {
+    return "";
+  }
+  if (
+    !localSetting.ytdlpPath ||
+    localSetting.ytdlpSha256 !== componentState.metadata!.ytdlp.sha256
+  ) {
+    return "Download";
+  }
+  return "";
+});
+const ffmpegPathIcon = computed(() => {
+  if (!componentState.metadata) {
+    return "";
+  }
+  if (
+    !localSetting.ffmpegPath ||
+    localSetting.ffmpegSha256 !== componentState.metadata!.ffmpeg.sha256
+  ) {
+    return "Download";
+  }
+  return "";
+});
+const denoPathIcon = computed(() => {
+  if (!componentState.metadata) {
+    return "";
+  }
+  if (
+    !localSetting.denoPath ||
+    localSetting.denoSha256 !== componentState.metadata!.deno.sha256
+  ) {
+    return "Download";
+  }
+  return "";
+});
 
 onMounted(async () => {
   try {
+    let components = getUpdatableComponents();
     if (!window.ytdlp.isInitialized()) {
       ElMessageBox.confirm("未找到 FFmpeg 或 YtDlp 组件", "提示", {
         confirmButtonText: "帮我搞定",
@@ -103,7 +153,20 @@ onMounted(async () => {
         closeOnClickModal: false,
       })
         .then(() => {
-          downloadComponents();
+          installComponents();
+        })
+        .catch(() => {});
+    } else if (components.length > 0) {
+      let component_list = components.join(", ");
+      ElMessageBox.confirm(`组件新版本可用: ${component_list}`, "提示", {
+        confirmButtonText: "开始更新",
+        cancelButtonText: "稍后再说",
+        type: "primary",
+        showClose: false,
+        closeOnClickModal: false,
+      })
+        .then(() => {
+          installComponents();
         })
         .catch(() => {});
     }
@@ -131,7 +194,7 @@ const openOutputDir = () => {
   utools.shellOpenPath(localSetting.outputDir);
 };
 
-const selectYtdlpFile = () => {
+const selectYtdlpFile = async () => {
   const path = utools.showOpenDialog({
     title: "选择 YtDlp 可执行文件",
     defaultPath: localSetting.ytdlpPath,
@@ -139,10 +202,15 @@ const selectYtdlpFile = () => {
   });
   if (path && path.length > 0) {
     localSetting.ytdlpPath = path[0];
+    localSetting.ytdlpSha256 = await window.fileSha256(localSetting.ytdlpPath);
+    window.ytdlp.init({
+      ffmpegPath: localSetting.ffmpegPath,
+      binaryPath: localSetting.ytdlpPath,
+    });
   }
 };
 
-const selectFFmpegFile = () => {
+const selectFFmpegFile = async () => {
   const path = utools.showOpenDialog({
     title: "选择 FFmpeg 可执行文件",
     defaultPath: localSetting.ffmpegPath,
@@ -150,10 +218,17 @@ const selectFFmpegFile = () => {
   });
   if (path && path.length > 0) {
     localSetting.ffmpegPath = path[0];
+    localSetting.ffmpegSha256 = await window.fileSha256(
+      localSetting.ffmpegPath,
+    );
+    window.ytdlp.init({
+      ffmpegPath: localSetting.ffmpegPath,
+      binaryPath: localSetting.ytdlpPath,
+    });
   }
 };
 
-const selectDenoFile = () => {
+const selectDenoFile = async () => {
   const path = utools.showOpenDialog({
     title: "选择 Deno 可执行文件",
     defaultPath: localSetting.denoPath,
@@ -161,6 +236,7 @@ const selectDenoFile = () => {
   });
   if (path && path.length > 0) {
     localSetting.denoPath = path[0];
+    localSetting.denoSha256 = await window.fileSha256(localSetting.denoPath);
   }
 };
 
@@ -176,7 +252,7 @@ const selectCookieFile = () => {
   }
 };
 
-const downloadComponents = async () => {
+const installComponents = async () => {
   try {
     const componentsDir = window.pathJoin(
       utools.getPath("appData"),
@@ -187,11 +263,19 @@ const downloadComponents = async () => {
 
     downloadComponentsLoading.value = true;
     console.log("Checking YtDlp");
-    if (!localSetting.ytdlpPath || !window.fileExists(localSetting.ytdlpPath)) {
-      const outputPath = window.pathJoin(componentsDir, "yt-dlp" + exeExt());
+    if (
+      !localSetting.ytdlpPath ||
+      !window.fileExists(localSetting.ytdlpPath) ||
+      localSetting.ytdlpSha256 !== componentState.metadata!.ytdlp.sha256
+    ) {
+      const outputPath = window.pathJoin(componentsDir, exename("yt-dlp"));
       console.log("Downloading yt-dlp to:", outputPath);
-      await window.downloadFileAsync(ytdlpUrl(), outputPath);
+      await window.downloadFileAsync(
+        componentState.metadata!.ytdlp.url,
+        outputPath,
+      );
       localSetting.ytdlpPath = outputPath;
+      localSetting.ytdlpSha256 = await window.fileSha256(outputPath);
       try {
         window.chmod(outputPath, 0o755);
       } catch (_err) {}
@@ -200,23 +284,36 @@ const downloadComponents = async () => {
     console.log("Checking FFmpeg");
     if (
       !localSetting.ffmpegPath ||
-      !window.fileExists(localSetting.ffmpegPath)
+      !window.fileExists(localSetting.ffmpegPath) ||
+      localSetting.ffmpegSha256 !== componentState.metadata!.ffmpeg.sha256
     ) {
-      const outputPath = window.pathJoin(componentsDir, "ffmpeg" + exeExt());
+      const outputPath = window.pathJoin(componentsDir, exename("ffmpeg"));
       console.log("Downloading ffmpeg to:", outputPath);
-      await window.downloadFileAsync(ffmpegUrl(), outputPath);
+      await window.downloadFileAsync(
+        componentState.metadata!.ffmpeg.url,
+        outputPath,
+      );
       localSetting.ffmpegPath = outputPath;
+      localSetting.ffmpegSha256 = await window.fileSha256(outputPath);
       try {
         window.chmod(outputPath, 0o755);
       } catch (_err) {}
     }
 
     console.log("Checking Deno");
-    if (!localSetting.denoPath || !window.fileExists(localSetting.denoPath)) {
-      const outputPath = window.pathJoin(componentsDir, "deno" + exeExt());
+    if (
+      !localSetting.denoPath ||
+      !window.fileExists(localSetting.denoPath) ||
+      localSetting.denoSha256 !== componentState.metadata!.deno.sha256
+    ) {
+      const outputPath = window.pathJoin(componentsDir, exename("deno"));
       console.log("Downloading deno to:", outputPath);
-      await window.downloadFileAsync(denoUrl(), outputPath);
+      await window.downloadFileAsync(
+        componentState.metadata!.deno.url,
+        outputPath,
+      );
       localSetting.denoPath = outputPath;
+      localSetting.denoSha256 = await window.fileSha256(outputPath);
       try {
         window.chmod(outputPath, 0o755);
       } catch (_err) {}

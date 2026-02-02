@@ -49,4 +49,5 @@ interface Window {
   pathJoin(...args: string[]): string;
   chmod(path: string, mode: string | number): void;
   downloadFileAsync(url: string, outputPath: string): Promise<void>;
+  fileSha256(filePath: string): Promise<string>;
 }

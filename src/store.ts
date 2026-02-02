@@ -5,25 +5,29 @@ import {
   DisplayVideoItem,
   GlobalSetting,
   LocalSetting,
+  ComponentMetadata,
 } from "./types";
 
 // LocalSetting
 const localSetting = reactive<LocalSetting>({
   ytdlpPath: "",
+  ytdlpSha256: "",
   ffmpegPath: "",
+  ffmpegSha256: "",
   denoPath: "",
+  denoSha256: "",
+  aria2cPath: "",
+  aria2cSha256: "",
   outputDir: utools.getPath("videos"),
   proxy: "",
   useProxy: false,
   cookiePath: undefined,
 });
 const localSettingKey = utools.getNativeId() + "/setting";
-
-function updateLocalSetting(setting: LocalSetting) {
+const updateLocalSetting = _.debounce((setting: LocalSetting) => {
   utools.dbStorage.setItem(localSettingKey, _.cloneDeep(setting));
-}
-const updateLocalSettingDebounced = _.debounce(updateLocalSetting, 1000);
-watch(localSetting, updateLocalSettingDebounced);
+}, 1000);
+watch(localSetting, updateLocalSetting);
 
 let localSetting_ = utools.dbStorage.getItem(localSettingKey);
 if (localSetting_) {
@@ -37,12 +41,10 @@ const globalSetting = reactive<GlobalSetting>({
   videoCount: 0,
 });
 const globalSettingKey = "global/setting";
-
-function updateGlobalSetting(setting: GlobalSetting) {
+const updateGlobalSetting = _.debounce((setting: GlobalSetting) => {
   utools.dbStorage.setItem(globalSettingKey, _.cloneDeep(setting));
-}
-const updateGlobalSettingDebounced = _.debounce(updateGlobalSetting, 1000);
-watch(globalSetting, updateGlobalSettingDebounced);
+}, 1000);
+watch(globalSetting, updateGlobalSetting);
 
 let globalSetting_ = utools.dbStorage.getItem(globalSettingKey);
 if (globalSetting_) {
@@ -74,4 +76,15 @@ const prepareDownload = reactive<{
   dialogVisible: false,
 });
 
-export { localSetting, globalSetting, videoItems, prepareDownload };
+// ComponentSha256
+const componentState = reactive<{
+  metadata?: ComponentMetadata;
+}>({});
+
+export {
+  localSetting,
+  globalSetting,
+  videoItems,
+  prepareDownload,
+  componentState,
+};
