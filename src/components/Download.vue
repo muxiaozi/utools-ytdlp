@@ -142,9 +142,9 @@
         ></el-image>
         <el-descriptions border :column="1" style="margin-top: 20px">
           <el-descriptions-item label="分辨率" :min-width="80"
-            >{{ selectVideo.width }}x{{
-              selectVideo.height
-            }}</el-descriptions-item
+            >{{ selectVideo.width }}x{{ selectVideo.height }}@{{
+              selectVideo.fps
+            }}fps</el-descriptions-item
           >
           <el-descriptions-item label="Url">
             <el-link
