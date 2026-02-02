@@ -31,13 +31,21 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var index_exports = {};
 __export(index_exports, {
   BIN_DIR: () => BIN_DIR,
+  Download: () => Download,
+  Exec: () => Exec,
+  Stream: () => Stream,
   YtDlp: () => YtDlp,
+  createDownload: () => createDownload,
+  createExec: () => createExec,
+  createStreamBuilder: () => createStream,
   helpers: () => helpers
 });
 module.exports = __toCommonJS(index_exports);
-var import_child_process2 = require("child_process");
-var fs5 = __toESM(require("fs"));
+var import_child_process = require("child_process");
+var fs6 = __toESM(require("fs"));
 var import_path2 = __toESM(require("path"));
+var import_buffer = require("buffer");
+var import_stream = require("stream");
 
 // src/utils/args.ts
 function createArgs(options) {
@@ -467,18 +475,29 @@ var ByQuality = {
   highest: "bv*",
   lowest: "wv*"
 };
+var ByFilter = ["audioonly", "videoonly", "audioandvideo", "mergevideo"];
 function parseFormatOptions(format) {
+  let filter;
+  let type;
+  let quality;
   if (!format) {
     return [];
   }
-  if (typeof format === "string") {
+  if (typeof format === "string" && !ByFilter.includes(format)) {
     return ["-f", format];
   }
-  if (Object.keys(format).length === 0) {
+  if (typeof format === "string" && ByFilter.includes(format)) {
+    filter = format;
+  }
+  if (Object.keys(format).length === 0 || !format || typeof format !== "object") {
     return ["-f", "bv*+ba"];
   }
+  if (typeof format === "object") {
+    filter = format.filter;
+    type = format.type;
+    quality = format.quality;
+  }
   let formatArr = [];
-  const { filter, quality, type } = format;
   if (filter === "audioonly") {
     formatArr = [
       "-x",
@@ -596,6 +615,12 @@ function getContentTypeFromArgs(options) {
     default:
       return "audio/mpeg";
   }
+}
+function getFileExtensionFromArgs(options) {
+  if (!options?.extractAudio) {
+    return null;
+  }
+  return options.audioFormat || "mp3";
 }
 
 // src/utils/progress.ts
@@ -747,7 +772,7 @@ async function fetchText(url, options = {}) {
   });
 }
 
-// src/configs/paths.ts
+// src/utils/paths.ts
 var fs2 = __toESM(require("fs"));
 var path = __toESM(require("path"));
 function findPackageRoot(startDir) {
@@ -820,14 +845,10 @@ async function downloadFFmpeg(out) {
       console.log("Downloading...", import_path.default.basename(downloadUrl));
       await downloadFile(downloadUrl, outputPath);
     }
-    try {
+    if (process.platform !== "win32") {
       for (const outputPath of outputPaths) {
         import_fs.default.chmodSync(outputPath, 493);
       }
-    } catch {
-      console.log(
-        "Note: Could not set executable permissions (likely Windows)"
-      );
     }
     return findFFmpegBinary();
   } catch (error) {
@@ -899,10 +920,8 @@ async function downloadYtDlp(out) {
   try {
     await downloadFile(downloadUrl, outputPath);
     console.log(`yt-dlp downloaded successfully to: ${outputPath}`);
-    try {
+    if (process.platform !== "win32") {
       fs4.chmodSync(outputPath, 493);
-    } catch {
-      console.log("Error while chmod");
     }
     return outputPath;
   } catch (error) {
@@ -961,61 +980,12 @@ function findYtdlpBinary() {
   }
 }
 
-// src/core/args.ts
-function buildYtDlpArgs({
-  url,
-  options,
-  ffmpegPath,
-  withProgressTemplate,
-  extra
-}) {
-  const args = createArgs(options || {});
-  if (ffmpegPath) {
-    args.push("--ffmpeg-location", ffmpegPath);
-  }
-  if (withProgressTemplate) {
-    args.push("--progress-template", PROGRESS_STRING);
-  }
-  if (extra && extra.length > 0) {
-    args.push(...extra);
-  }
-  if (url) {
-    args.push(url);
-  }
-  return args;
-}
-
-// src/core/runner.ts
-var import_child_process = require("child_process");
-
-// src/core/errors.ts
-var YtDlpError = class extends Error {
-  constructor(message, details = {}) {
-    super(message);
-    this.name = "YtDlpError";
-    this.exitCode = details.exitCode;
-    this.stdout = details.stdout;
-    this.stderr = details.stderr;
-    this.args = details.args;
-    this.hint = details.hint;
-  }
-};
-
-// src/core/hints.ts
-var JS_RUNTIME_HINT = "yt-dlp reported a missing JavaScript runtime. Install Node.js or a supported browser runtime for full YouTube support. See README troubleshooting for details.";
-function detectYtDlpHint(stderr) {
-  const normalized = stderr.toLowerCase();
-  if (normalized.includes("javascript runtime") || normalized.includes("js runtime") || normalized.includes("node.js") || normalized.includes("nodejs") || normalized.includes("phantomjs") || normalized.includes("chromium") || normalized.includes("firefox")) {
-    return JS_RUNTIME_HINT;
-  }
-  return void 0;
-}
-
-// src/core/parsers/paths.ts
+// src/core/parse.ts
 function parsePrintedOutput(output) {
-  return output.replace(/~ytdlp-progress-\{[\s\S]*?\}\n?/g, "").split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0).filter((line) => !line.includes("__YTDLP_FILEPATH__:")).filter((line) => !line.includes("__YTDLP_VIDEO_INFO__:")).join("\n");
+  return output.replace(/~ytdlp-progress-\{[\s\S]*?\}\n?/g, "").split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0).filter((line) => !line.includes("__YTDLP_FILEPATH__:")).filter((line) => !line.includes("__YTDLP_VIDEO_INFO__:")).filter((line) => !line.includes("__YTDLP_BEFORE_DL__:")).join("\n");
 }
 function parsePrintedVideoInfo(output) {
+  const results = [];
   const lines = output.split(/\r?\n/);
   for (const line of lines) {
     const trimmed = line.trim();
@@ -1045,120 +1015,382 @@ function parsePrintedVideoInfo(output) {
             result[key] = value;
           }
         }
-        return result;
+        results.push(result);
       } catch {
-        return null;
       }
     }
   }
-  return null;
+  return results;
 }
-
-// src/core/runner.ts
-function emitProgress(data, onProgress, emit) {
-  const progress = stringToProgress(data);
-  if (progress) {
-    onProgress?.(progress);
-    emit?.(progress);
+function parseBeforeDownloadInfo(line) {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith("__YTDLP_BEFORE_DL__:")) {
+    return null;
   }
-}
-function spawnYtDlp(binaryPath, args, options = {}) {
-  if (options.debugPrintCommandLine) {
-    console.error(`[ytdlp-nodejs] Command: ${binaryPath} ${args.join(" ")}`);
-  }
-  const child = (0, import_child_process.spawn)(binaryPath, args, { shell: false });
-  let stdout = "";
-  let stderr = "";
-  child.stdout.on("data", (data) => {
-    const text = Buffer.from(data).toString();
-    stdout += text;
-    emitProgress(
-      text,
-      void 0,
-      (progress) => child.emit("progress", progress)
-    );
-  });
-  child.stderr.on("data", (data) => {
-    const text = Buffer.from(data).toString();
-    stderr += text;
-    emitProgress(
-      text,
-      void 0,
-      (progress) => child.emit("progress", progress)
-    );
-  });
-  child.on("close", () => {
-    const newOutput = parsePrintedOutput(stdout);
-    const info = parsePrintedVideoInfo(stdout);
-    child.emit("finish", {
-      output: newOutput,
-      filePath: info?.filepath ?? "",
-      info,
-      stderr
-    });
-  });
-  return child;
-}
-function runYtDlp(binaryPath, args, options = {}) {
-  return new Promise((resolve, reject) => {
-    if (options.debugPrintCommandLine) {
-      console.error(`[ytdlp-nodejs] Command: ${binaryPath} ${args.join(" ")}`);
-    }
-    const child = (0, import_child_process.spawn)(binaryPath, args, { shell: false });
-    let stdout = "";
-    let stderr = "";
-    if (options.passThrough) {
-      child.stdout.pipe(options.passThrough);
-    }
-    child.stdout.on("data", (data) => {
-      if (options.passThrough) return;
-      const text = Buffer.from(data).toString();
-      stdout += text;
-      options.onStdout?.(text);
-      emitProgress(text, options.onProgress);
-    });
-    child.stderr.on("data", (data) => {
-      const text = Buffer.from(data).toString();
-      stderr += text;
-      options.onStderr?.(text);
-      emitProgress(text, options.onProgress);
-    });
-    child.on("close", (code) => {
-      if (code === 0) {
-        resolve({ stdout, stderr, exitCode: code });
+  const jsonStr = trimmed.replace("__YTDLP_BEFORE_DL__:", "").trim();
+  try {
+    const cleanedJsonStr = jsonStr.replace(/:"N\/A"/g, ":null").replace(/:"NA"/g, ":null").replace(/:""/, ':"NA"');
+    const parsed = JSON.parse(cleanedJsonStr);
+    const result = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      if (value === "NA" || value === "N/A") {
+        result[key] = null;
+      } else if ((key.includes("_count") || key.includes("_timestamp") || key === "autonumber" || key === "video_autonumber" || key === "n_entries" || key === "playlist_count" || key === "release_year" || key === "start_time" || key === "end_time" || key === "epoch" || key === "duration" || key === "age_limit") && typeof value === "string") {
+        const num = Number(value);
+        result[key] = isNaN(num) ? null : num;
+      } else if ((key === "is_live" || key === "was_live" || key === "channel_is_verified") && typeof value === "string") {
+        result[key] = value === "true" || value === "True";
+      } else if ((key === "categories" || key === "tags" || key === "creators" || key === "cast") && typeof value === "string") {
+        if (value === "NA" || value === "N/A" || value === "") {
+          result[key] = null;
+        } else {
+          result[key] = value.split(",").map((s) => s.trim());
+        }
       } else {
-        const hint = detectYtDlpHint(stderr);
-        reject(
-          new YtDlpError(`yt-dlp exited with code ${code}: ${stderr}`, {
-            exitCode: code ?? void 0,
-            stdout,
-            stderr,
-            args,
-            hint
-          })
-        );
+        result[key] = value;
       }
-    });
-    child.on("error", (err) => {
-      reject(
-        new YtDlpError(`Failed to start yt-dlp process: ${err.message}`, {
-          args
-        })
-      );
-    });
-  });
+    }
+    return result;
+  } catch {
+    return null;
+  }
 }
 
-// src/operations/download.ts
-function buildDownloadArgs(opts) {
-  return buildYtDlpArgs({
-    url: opts.url,
-    options: opts.options,
-    ffmpegPath: opts.ffmpegPath,
-    withProgressTemplate: opts.withProgressTemplate,
-    extra: opts.extra
-  });
+// src/builder/base-builder.ts
+var import_node_events = require("events");
+
+// src/core/args.ts
+function buildYtDlpArgs({
+  url,
+  options,
+  ffmpegPath,
+  withProgressTemplate,
+  extra
+}) {
+  const args = createArgs(options || {});
+  if (ffmpegPath) {
+    args.push("--ffmpeg-location", ffmpegPath);
+  }
+  if (withProgressTemplate) {
+    args.push("--progress-template", PROGRESS_STRING);
+  }
+  if (extra && extra.length > 0) {
+    args.push(...extra);
+  }
+  if (url) {
+    args.push("--", url);
+  }
+  return args;
 }
+
+// src/builder/base-builder.ts
+var import_node_fs = __toESM(require("fs"));
+var BaseBuilder = class extends import_node_events.EventEmitter {
+  constructor(url, options) {
+    super();
+    this.binaryPath = "";
+    this.videoUrl = "";
+    this.extraArgs = {};
+    this.rawArgs = [];
+    this.videoUrl = url;
+    this.binaryPath = options?.binaryPath || findYtdlpBinary() || "";
+    this.ffmpegPath = options?.ffmpegPath || findFFmpegBinary();
+    if (!this.binaryPath || !import_node_fs.default.existsSync(this.binaryPath)) {
+      console.error(
+        new Error(
+          "yt-dlp binary not found. Please install yt-dlp or specify correct binaryPath in options."
+        )
+      );
+    }
+    if (this.ffmpegPath && !import_node_fs.default.existsSync(this.ffmpegPath)) {
+      console.error(
+        new Error(
+          `FFmpeg binary not found at: ${this.ffmpegPath}. Please install FFmpeg or specify correct ffmpegPath.`
+        )
+      );
+    }
+  }
+  /**
+   * Set the binary path for yt-dlp
+   */
+  setBinaryPath(path5) {
+    this.binaryPath = path5;
+    return this;
+  }
+  /**
+   * Set the FFmpeg binary path
+   */
+  setFfmpegPath(path5) {
+    this.ffmpegPath = path5;
+    return this;
+  }
+  /**
+   * Set the format filter (mergevideo, audioonly, videoonly, audioandvideo)
+   */
+  format(format) {
+    this.formatValue = format;
+    return this;
+  }
+  /**
+   * Set the format filter (mergevideo, audioonly, videoonly, audioandvideo)
+   */
+  filter(filter) {
+    const existing = typeof this.formatValue === "object" ? this.formatValue : {};
+    this.formatValue = { ...existing, filter };
+    return this;
+  }
+  /**
+   * Set the format quality (0-10, 0 is best)
+   */
+  quality(quality) {
+    const existing = typeof this.formatValue === "object" ? this.formatValue : {};
+    this.formatValue = {
+      filter: this.formatValue,
+      ...existing,
+      quality
+    };
+    return this;
+  }
+  /**
+   * Set the format type (audioonly, videoonly, audioandvideo)
+   */
+  type(type) {
+    const existing = typeof this.formatValue === "object" ? this.formatValue : {};
+    this.formatValue = {
+      filter: this.formatValue,
+      ...existing,
+      type
+    };
+    return this;
+  }
+  options(options) {
+    this.extraArgs = { ...this.extraArgs, ...options };
+    return this;
+  }
+  /**
+   * Limit download rate (e.g., '1M', '500K')
+   */
+  rateLimit(rate) {
+    this.extraArgs.limitRate = rate;
+    return this;
+  }
+  /**
+   * Set cookies string
+   */
+  cookies(cookies) {
+    this.extraArgs.cookies = cookies;
+    return this;
+  }
+  /**
+   * Set cookies from browser
+   */
+  cookiesFromBrowser(browser) {
+    this.extraArgs.cookiesFromBrowser = browser;
+    return this;
+  }
+  /**
+   * Set proxy URL
+   */
+  proxy(url) {
+    this.extraArgs.proxy = url;
+    return this;
+  }
+  /**
+   * Add custom arguments
+   */
+  addOption(key, value) {
+    this.extraArgs[key] = value;
+    return this;
+  }
+  /**
+   * Add raw command line arguments
+   */
+  addArgs(...args) {
+    this.rawArgs.push(...args);
+    return this;
+  }
+  /**
+   * Enable audio extraction
+   */
+  extractAudio(format) {
+    this.extraArgs.extractAudio = true;
+    if (format) {
+      this.extraArgs.audioFormat = format;
+    }
+    return this;
+  }
+  /**
+   * Set audio format for extraction
+   */
+  audioFormat(format) {
+    this.extraArgs.audioFormat = format;
+    return this;
+  }
+  /**
+   * Set audio quality (0-10, 0 is best)
+   */
+  audioQuality(quality) {
+    this.extraArgs.audioQuality = quality;
+    return this;
+  }
+  /**
+   * Embed thumbnail in the file
+   */
+  embedThumbnail() {
+    this.extraArgs.embedThumbnail = true;
+    return this;
+  }
+  /**
+   * Embed subtitles in the file
+   */
+  embedSubs() {
+    this.extraArgs.embedSubs = true;
+    return this;
+  }
+  /**
+   * Embed metadata in the file
+   */
+  embedMetadata() {
+    this.extraArgs.embedMetadata = true;
+    return this;
+  }
+  /**
+   * Write subtitles to file
+   */
+  writeSubs() {
+    this.extraArgs.writeSubs = true;
+    return this;
+  }
+  /**
+   * Write auto-generated subtitles
+   */
+  writeAutoSubs() {
+    this.extraArgs.writeAutoSubs = true;
+    return this;
+  }
+  /**
+   * Set subtitle languages
+   */
+  subLangs(langs) {
+    this.extraArgs.subLangs = langs;
+    return this;
+  }
+  /**
+   * Write thumbnail to file
+   */
+  writeThumbnail() {
+    this.extraArgs.writeThumbnail = true;
+    return this;
+  }
+  /**
+   * Set username for authentication
+   */
+  username(user) {
+    this.extraArgs.username = user;
+    return this;
+  }
+  /**
+   * Set password for authentication
+   */
+  password(pass) {
+    this.extraArgs.password = pass;
+    return this;
+  }
+  /**
+   * Set playlist start index
+   */
+  playlistStart(index) {
+    this.extraArgs.playlistStart = index;
+    return this;
+  }
+  /**
+   * Set playlist end index
+   */
+  playlistEnd(index) {
+    this.extraArgs.playlistEnd = index;
+    return this;
+  }
+  /**
+   * Set specific playlist items
+   */
+  playlistItems(items) {
+    this.extraArgs.playlistItems = items;
+    return this;
+  }
+  /**
+   * Build format-related arguments from current settings
+   */
+  buildFormatArgs() {
+    if (!this.formatValue) {
+      return [];
+    }
+    return parseFormatOptions(this.formatValue);
+  }
+  /**
+   * Build base yt-dlp arguments (common to all operations)
+   */
+  buildBaseArgs(extra = []) {
+    if (!this.videoUrl) {
+      throw new Error("URL is required.");
+    }
+    const formatArgs = this.buildFormatArgs();
+    return buildYtDlpArgs({
+      url: this.videoUrl,
+      options: this.extraArgs,
+      ffmpegPath: this.ffmpegPath,
+      withProgressTemplate: true,
+      extra: [...formatArgs, ...extra, ...this.rawArgs]
+    });
+  }
+  /**
+   * Enable debug printing of the command line before execution
+   */
+  debugPrint(enable = true) {
+    this.extraArgs.debugPrintCommandLine = enable;
+    return this;
+  }
+  /**
+   * Get the full command string (for debugging)
+   */
+  getCommand() {
+    const args = this.buildArgs();
+    return `${this.binaryPath} ${args.join(" ")}`;
+  }
+  /**
+   * Print the command line to stderr if debugPrintCommandLine is enabled
+   * Should be called before spawning the process
+   */
+  printDebugCommandLine(args) {
+    if (this.extraArgs.debugPrintCommandLine) {
+      const command = `${this.binaryPath} ${args.join(" ")}`;
+      console.error(`[ytdlp-nodejs] Command: ${command}`);
+    }
+  }
+  /**
+   * Validates that binary path is set
+   */
+  validateBinaryPath() {
+    if (!this.binaryPath) {
+      throw new Error(
+        "Binary path is required. Use .setBinaryPath() or pass it in constructor."
+      );
+    }
+  }
+  /**
+   * Kill the running process
+   */
+  kill(signal) {
+    return this.process?.kill(signal) ?? false;
+  }
+  /**
+   * Get the process ID
+   */
+  get pid() {
+    return this.process?.pid;
+  }
+};
+
+// src/core/constants.ts
 var VIDEO_INFO_FIELDS = [
   "id",
   "title",
@@ -1231,246 +1463,629 @@ var VIDEO_INFO_FIELDS = [
   "cast",
   "filepath"
 ];
-function buildDownloadExtraArgs(format) {
-  const extra = parseFormatOptions(format);
+function buildVideoInfoPrintArg() {
   const jsonFields = VIDEO_INFO_FIELDS.map(
     (field) => `"${field}":%(${field}|null)j`
   ).join(",");
-  extra.push("--print", `after_move:__YTDLP_VIDEO_INFO__:{${jsonFields}}`);
-  extra.push("--progress", "--newline");
-  return extra;
+  return `after_move:__YTDLP_VIDEO_INFO__:{${jsonFields}}`;
 }
-function executeDownload(ctx, args) {
-  if (!ctx.binaryPath) throw new Error("Ytdlp binary not found");
-  return spawnYtDlp(ctx.binaryPath, args);
+function buildBeforeDownloadPrintArg() {
+  const jsonFields = VIDEO_INFO_FIELDS.map(
+    (field) => `"${field}":%(${field}|null)j`
+  ).join(",");
+  return `before_dl:__YTDLP_BEFORE_DL__:{${jsonFields}}`;
 }
-async function executeDownloadAsync(ctx, args, onData, passThrough) {
-  if (!ctx.binaryPath) throw new Error("Ytdlp binary not found");
-  const result = await runYtDlp(ctx.binaryPath, args, {
-    onStdout: onData,
-    onStderr: onData,
-    passThrough
-  });
-  return result.stdout;
-}
-async function downloadInternal(ctx, url, options) {
-  const { format, onProgress, ...opt } = options || {};
-  const extra = buildDownloadExtraArgs(format);
-  const args = buildDownloadArgs({
-    url,
-    options: opt,
-    ffmpegPath: ctx.ffmpegPath,
-    withProgressTemplate: !!onProgress,
-    extra
-  });
-  const output = await executeDownloadAsync(ctx, args, (data) => {
-    const progress = stringToProgress(data);
-    if (progress) {
-      onProgress?.(progress);
-    }
-  });
-  const newOutput = parsePrintedOutput(output);
-  const info = parsePrintedVideoInfo(output);
-  return { output: newOutput, info };
-}
-function downloadSync(ctx, url, options) {
-  const { format, ...opt } = options || {};
-  const extra = buildDownloadExtraArgs(format);
-  const args = buildDownloadArgs({
-    url,
-    options: opt,
-    ffmpegPath: ctx.ffmpegPath,
-    withProgressTemplate: true,
-    extra
-  });
-  const ytDlpProcess = executeDownload(ctx, args);
-  return ytDlpProcess;
-}
-async function downloadAsync(ctx, url, options) {
-  const result = await downloadInternal(ctx, url, options);
-  return {
-    output: result.output,
-    filePath: result.info?.filepath ?? "",
-    info: result.info ?? void 0
-  };
+function getDownloadPrintArgs() {
+  return ["--print", buildVideoInfoPrintArg(), "--progress", "--newline"];
 }
 
-// src/operations/stream.ts
-var import_stream = require("stream");
-async function executeWithStream(ctx, args, onProgress, passThrough) {
-  if (!ctx.binaryPath) throw new Error("Ytdlp binary not found");
-  const result = await runYtDlp(ctx.binaryPath, args, {
-    passThrough,
-    onProgress
-  });
-  return result.stdout;
-}
-function createStream(ctx, url, options) {
-  const { format, onProgress, ...opt } = options || {};
-  const args = buildYtDlpArgs({
-    url,
-    options: opt,
-    ffmpegPath: ctx.ffmpegPath,
-    withProgressTemplate: !!onProgress,
-    extra: [...parseFormatOptions(format), "-o", "-"]
-  });
-  const passThrough = new import_stream.PassThrough();
-  const promise = executeWithStream(ctx, args, onProgress, passThrough);
-  return {
-    promise,
-    pipe: (destination, pipeOptions) => passThrough.pipe(destination, pipeOptions),
-    pipeAsync: (destination, pipeOptions) => {
-      return new Promise((resolve, reject) => {
-        const pt = passThrough.pipe(destination, pipeOptions);
-        destination.on("finish", () => resolve(pt));
-        destination.on("error", reject);
-      });
-    }
-  };
-}
-async function getFileAsync(ctx, url, options) {
-  const { format, filename, metadata, onProgress, ...opt } = options || {};
-  let capturedTitle = "";
-  if (!filename) {
-    try {
-      const titleResult = await runYtDlp(ctx.binaryPath, [
-        "--print",
-        "%(title)s",
-        "--no-download",
-        url
-      ]);
-      capturedTitle = titleResult.stdout.trim();
-    } catch {
-    }
+// src/builder/download-builder.ts
+var import_node_child_process = require("child_process");
+var Download = class extends BaseBuilder {
+  constructor(url, options) {
+    super(url, options);
+    this.on("error", () => {
+    });
   }
-  const passThrough = new import_stream.PassThrough();
-  const chunks = [];
-  passThrough.on("data", (chunk) => {
-    chunks.push(Buffer.from(chunk));
-  });
-  const args = buildYtDlpArgs({
-    url,
-    options: opt,
-    ffmpegPath: ctx.ffmpegPath,
-    withProgressTemplate: !!onProgress,
-    extra: [...parseFormatOptions(format), "-o", "-"]
-  });
-  if (!ctx.binaryPath) throw new Error("Ytdlp binary not found");
-  await runYtDlp(ctx.binaryPath, args, {
-    onStderr: (data) => {
-      if (onProgress) {
-        const progress = stringToProgress(data);
-        if (progress) {
-          onProgress(progress);
+  /**
+   * Add a typed event listener
+   */
+  on(event, listener) {
+    return super.on(event, listener);
+  }
+  /**
+   * Add a one-time typed event listener
+   */
+  once(event, listener) {
+    return super.once(event, listener);
+  }
+  /**
+   * Emit a typed event
+   */
+  emit(event, ...args) {
+    return super.emit(event, ...args);
+  }
+  /**
+   * Set the output directory
+   */
+  output(path5) {
+    this.outputDir = path5;
+    return this;
+  }
+  /**
+   * Set the output template (yt-dlp -o option)
+   */
+  setOutputTemplate(template) {
+    this.outputPath = template;
+    return this;
+  }
+  /**
+   * Skip download (useful for metadata extraction)
+   */
+  skipDownload() {
+    this.extraArgs.skipDownload = true;
+    return this;
+  }
+  /**
+   * Build the command arguments
+   */
+  buildArgs() {
+    const options = { ...this.extraArgs };
+    if (this.outputDir) {
+      options.output = `${this.outputDir}/%(title)s.%(ext)s`;
+    }
+    if (this.outputPath) {
+      options.output = this.outputPath;
+    }
+    const savedExtraArgs = this.extraArgs;
+    this.extraArgs = options;
+    const extraPrintArgs = [...getDownloadPrintArgs()];
+    if (this.listenerCount("beforeDownload") > 0) {
+      extraPrintArgs.unshift("--print", buildBeforeDownloadPrintArg());
+    }
+    const args = this.buildBaseArgs(extraPrintArgs);
+    this.extraArgs = savedExtraArgs;
+    return args;
+  }
+  /**
+   * Run the download
+   */
+  run() {
+    if (this.resultPromise) {
+      return this.resultPromise;
+    }
+    this.resultPromise = new Promise((resolve, reject) => {
+      try {
+        this.validateBinaryPath();
+        const args = this.buildArgs();
+        const command = `${this.binaryPath} ${args.join(" ")}`;
+        this.printDebugCommandLine(args);
+        this.process = (0, import_node_child_process.spawn)(this.binaryPath, args);
+        this.emit("start", command);
+        let stdout = "";
+        let stderr = "";
+        this.process.stdout?.on("data", (data) => {
+          const text = data.toString();
+          stdout += text;
+          this.emit("stdout", text);
+          const beforeInfo = parseBeforeDownloadInfo(text);
+          if (beforeInfo) {
+            this.emit(
+              "beforeDownload",
+              beforeInfo
+            );
+          }
+          const progress = stringToProgress(text);
+          if (progress) {
+            this.emit("progress", progress);
+          }
+        });
+        this.process.stderr?.on("data", (data) => {
+          const text = data.toString();
+          stderr += text;
+          this.emit("stderr", text);
+          const progress = stringToProgress(text);
+          if (progress) {
+            this.emit("progress", progress);
+          }
+        });
+        this.process.on("error", (error) => {
+          this.emit("error", error);
+          reject(error);
+        });
+        this.process.on("close", (code) => {
+          if (code !== 0 && code !== null) {
+            const error = new Error(
+              `yt-dlp exited with code ${code}: ${stderr}`
+            );
+            this.emit("error", error);
+            reject(error);
+            return;
+          }
+          const output = parsePrintedOutput(stdout);
+          const info = parsePrintedVideoInfo(
+            stdout
+          );
+          const result = {
+            output,
+            filePaths: info.map((i) => i?.filepath ?? "").filter(Boolean),
+            info,
+            stderr
+          };
+          this.emit("finish", result);
+          resolve(result);
+        });
+      } catch (error) {
+        reject(error);
+      }
+    });
+    return this.resultPromise;
+  }
+  /**
+   * Make the builder directly awaitable
+   */
+  then(onfulfilled, onrejected) {
+    return this.run().then(onfulfilled, onrejected);
+  }
+  /**
+   * Catch errors
+   */
+  catch(onrejected) {
+    return this.run().catch(onrejected);
+  }
+  /**
+   * Finally handler
+   */
+  finally(onfinally) {
+    return this.run().finally(onfinally);
+  }
+};
+function createDownload(url, options) {
+  return new Download(url, options);
+}
+
+// src/builder/stream-builder.ts
+var import_node_stream = require("stream");
+var import_node_child_process2 = require("child_process");
+var Stream = class extends BaseBuilder {
+  constructor(url, options) {
+    super(url, options);
+    this.totalBytes = 0;
+    this.started = false;
+    this.on("error", () => {
+    });
+  }
+  /**
+   * Add a typed event listener
+   */
+  on(event, listener) {
+    return super.on(event, listener);
+  }
+  /**
+   * Add a one-time typed event listener
+   */
+  once(event, listener) {
+    return super.once(event, listener);
+  }
+  /**
+   * Emit a typed event
+   */
+  emit(event, ...args) {
+    return super.emit(event, ...args);
+  }
+  /**
+   * Build the command arguments
+   */
+  buildArgs() {
+    const baseArgs = ["-o", "-", "--no-playlist", "--progress", "--no-quiet"];
+    if (this.listenerCount("beforeDownload") > 0) {
+      baseArgs.push("--print", buildBeforeDownloadPrintArg());
+    }
+    return this.buildBaseArgs(baseArgs);
+  }
+  /**
+   * Start the stream process
+   */
+  startStream() {
+    if (this.started) {
+      return this.passThrough;
+    }
+    this.validateBinaryPath();
+    this.started = true;
+    this.passThrough = new import_node_stream.PassThrough();
+    const args = this.buildArgs();
+    const command = `${this.binaryPath} ${args.join(" ")}`;
+    this.printDebugCommandLine(args);
+    this.process = (0, import_node_child_process2.spawn)(this.binaryPath, args, { shell: false });
+    this.emit("start", command);
+    this.process.stdout?.on("data", (chunk) => {
+      this.totalBytes += chunk.length;
+      this.passThrough.write(chunk);
+      this.emit("data", chunk);
+    });
+    this.process.stderr?.on("data", (data) => {
+      const text = data.toString();
+      const beforeInfo = parseBeforeDownloadInfo(text);
+      if (beforeInfo) {
+        this.emit(
+          "beforeDownload",
+          beforeInfo
+        );
+      }
+      const progress = stringToProgress(text);
+      if (progress) {
+        this.emit("progress", progress);
+      }
+    });
+    this.process.on("error", (error) => {
+      this.emit("error", error);
+      this.passThrough.destroy(error);
+    });
+    this.process.on("close", (code) => {
+      if (code !== 0 && code !== null) {
+        const error = new Error(`yt-dlp exited with code ${code}`);
+        this.emit("error", error);
+        this.passThrough.destroy(error);
+      } else {
+        this.passThrough.end();
+        this.emit("end");
+      }
+    });
+    return this.passThrough;
+  }
+  /**
+   * Pipe the stream to a writable destination and wait for completion.
+   * This method is awaitable - returns a Promise.
+   *
+   * @example
+   * ```typescript
+   * const result = await ytdlp
+   *   .stream(url)
+   *   .filter('mergevideo')
+   *   .pipe(createWriteStream('video.mp4'));
+   * ```
+   */
+  pipe(destination, options) {
+    const startTime = Date.now();
+    const stream = this.startStream();
+    return new Promise((resolve, reject) => {
+      stream.pipe(destination, options);
+      destination.on("finish", () => {
+        resolve({
+          bytes: this.totalBytes,
+          duration: Date.now() - startTime
+        });
+      });
+      destination.on("error", reject);
+      this.passThrough.on("error", reject);
+    });
+  }
+  /**
+   * Alias for pipe() - for backward compatibility
+   */
+  pipeAsync(destination, options) {
+    return this.pipe(destination, options);
+  }
+  /**
+   * Collect the entire stream into a Buffer
+   */
+  async toBuffer() {
+    const chunks = [];
+    return new Promise((resolve, reject) => {
+      const stream = this.startStream();
+      stream.on("data", (chunk) => {
+        chunks.push(chunk);
+      });
+      stream.on("end", () => {
+        resolve(Buffer.concat(chunks));
+      });
+      stream.on("error", reject);
+    });
+  }
+  /**
+   * Get the underlying PassThrough stream
+   */
+  getStream() {
+    return this.startStream();
+  }
+};
+function createStream(url, options) {
+  return new Stream(url, options);
+}
+
+// src/builder/exec-builder.ts
+var import_node_stream2 = require("stream");
+var import_node_child_process3 = require("child_process");
+var Exec = class extends BaseBuilder {
+  constructor(url, options) {
+    super(url, options);
+    this.totalBytes = 0;
+    this.started = false;
+    this.output = "";
+    this.on("error", () => {
+    });
+  }
+  /**
+   * Add a typed event listener
+   */
+  on(event, listener) {
+    return super.on(event, listener);
+  }
+  /**
+   * Add a one-time typed event listener
+   */
+  once(event, listener) {
+    return super.once(event, listener);
+  }
+  /**
+   * Emit a typed event
+   */
+  emit(event, ...args) {
+    return super.emit(event, ...args);
+  }
+  /**
+   * Build the command arguments
+   */
+  buildArgs() {
+    const baseArgs = [];
+    const printArgs = [...getDownloadPrintArgs()];
+    if (this.listenerCount("beforeDownload") > 0) {
+      printArgs.unshift("--print", buildBeforeDownloadPrintArg());
+    }
+    if (this.listenerCount("afterDownload") > 0) {
+      printArgs.push("--print", "after_move:filepath");
+    }
+    return this.buildBaseArgs([...baseArgs, ...printArgs]);
+  }
+  /**
+   * Start the exec process (for pipe mode)
+   */
+  startStream() {
+    if (this.started) {
+      return this.passThrough;
+    }
+    this.validateBinaryPath();
+    this.started = true;
+    this.passThrough = new import_node_stream2.PassThrough();
+    this.output = "";
+    let args = this.buildArgs();
+    if (!args.includes("--no-playlist")) {
+      args = ["--no-playlist", ...args];
+    }
+    const command = `${this.binaryPath} ${args.join(" ")}`;
+    this.printDebugCommandLine(args);
+    this.process = (0, import_node_child_process3.spawn)(this.binaryPath, args, { shell: false });
+    this.emit("start", command);
+    this.process.stdout?.on("data", (chunk) => {
+      this.totalBytes += chunk.length;
+      this.passThrough.write(chunk);
+      this.emit("data", chunk);
+      const text = chunk.toString();
+      this.emit("stdout", text);
+      const beforeInfo = parseBeforeDownloadInfo(text);
+      if (beforeInfo) {
+        this.beforeDownloadInfo = beforeInfo;
+        this.emit("beforeDownload", this.beforeDownloadInfo);
+      }
+      const progress = stringToProgress(text);
+      if (progress) {
+        this.emit("progress", progress);
+      }
+    });
+    this.process.stderr?.on("data", (data) => {
+      const text = data.toString();
+      this.emit("stderr", text);
+      this.output += text;
+      const beforeInfo = parseBeforeDownloadInfo(text);
+      if (beforeInfo) {
+        this.beforeDownloadInfo = beforeInfo;
+        this.emit("beforeDownload", this.beforeDownloadInfo);
+      }
+      const progress = stringToProgress(text);
+      if (progress) {
+        this.emit("progress", progress);
+        if (progress.status === "finished") {
+          if (this.beforeDownloadInfo) {
+            this.afterDownloadInfo = {
+              ...this.beforeDownloadInfo,
+              filepath: progress.filename
+            };
+            this.emit("afterDownload", this.afterDownloadInfo);
+          }
         }
       }
-    },
-    passThrough
-  });
-  const contentType = getContentTypeFromArgs(opt) || getContentType(format) || "video/mp4";
-  const extMap = {
-    "video/mp4": "mp4",
-    "video/webm": "webm",
-    "video/mkv": "mkv",
-    "audio/mp3": "mp3",
-    "audio/mpeg": "mp3",
-    "audio/m4a": "m4a",
-    "audio/aac": "aac",
-    "audio/flac": "flac",
-    "audio/wav": "wav",
-    "audio/ogg": "ogg",
-    "audio/opus": "opus"
-  };
-  const ext = extMap[contentType] || contentType.split("/")[1] || "mp4";
-  const capturedFilename = capturedTitle ? `${capturedTitle}.${ext}` : "";
-  const finalFilename = filename || capturedFilename || "download";
-  const finalMetadata = {
-    name: finalFilename,
-    type: contentType,
-    size: Buffer.concat(chunks).length,
-    ...metadata
-  };
-  return new File([new Uint8Array(Buffer.concat(chunks))], finalMetadata.name, {
-    type: finalMetadata.type
-  });
-}
-
-// src/core/parsers/json.ts
-function parseJson(raw) {
-  const trimmed = raw.trim();
-  if (!trimmed) {
-    throw new Error("Empty JSON output from yt-dlp.");
+    });
+    this.process.on("error", (error) => {
+      this.emit("error", error);
+      this.passThrough.destroy(error);
+    });
+    this.process.on("close", (code) => {
+      if (code !== 0 && code !== null) {
+        const error = new Error(`yt-dlp exited with code ${code}`);
+        this.emit("error", error);
+        this.passThrough.destroy(error);
+      } else {
+        this.passThrough.end();
+        this.emit("end");
+      }
+    });
+    return this.passThrough;
   }
-  return JSON.parse(trimmed);
-}
-
-// src/operations/info.ts
-async function execute(ctx, args) {
-  if (!ctx.binaryPath) throw new Error("Ytdlp binary not found");
-  const result = await runYtDlp(ctx.binaryPath, args);
-  return result.stdout;
-}
-async function getInfoAsync(ctx, url, options) {
-  const args = [
-    "--dump-single-json",
-    "--quiet",
-    ...createArgs({ flatPlaylist: true, ...options }),
-    url
-  ];
-  const execResult = await execute(ctx, args);
-  return parseJson(execResult);
-}
-async function getFormatsAsync(ctx, url, options) {
-  const args = [
-    "--dump-single-json",
-    "--quiet",
-    ...createArgs({ flatPlaylist: true, ...options }),
-    url
-  ];
-  const execResult = await execute(ctx, args);
-  const info = parseJson(execResult);
-  const formats = info.formats || [];
-  return {
-    source: "json",
-    info,
-    formats
-  };
-}
-async function getDirectUrlsAsync(ctx, url, options) {
-  const args = ["--get-url", ...createArgs(options || {}), url];
-  const execResult = await execute(ctx, args);
-  return String(execResult).split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0);
-}
-async function getThumbnailsAsync(ctx, url) {
-  const args = [
-    "--print",
-    "thumbnails_table",
-    "--print",
-    "playlist:thumbnails_table",
-    "--quiet",
-    url
-  ];
-  const execResult = await execute(ctx, args);
-  return extractThumbnails(execResult);
-}
-async function getTitleAsync(ctx, url) {
-  const args = ["--print", "title", url];
-  const execResult = await execute(ctx, args);
-  return execResult;
-}
-async function getVersionAsync(ctx) {
-  const execResult = await execute(ctx, ["--version"]);
-  return execResult.trim();
-}
-async function getUrlsAsync(ctx, url, options) {
-  const args = [
-    "--print",
-    "urls",
-    ...createArgs({ flatPlaylist: true, ...options }),
-    url
-  ];
-  const execResult = await execute(ctx, args);
-  return String(execResult).split("\n");
+  /**
+   * Pipe the stream to a writable destination and wait for completion.
+   * This method is awaitable - returns a Promise.
+   *
+   * @example
+   * ```typescript
+   * import { createWriteStream } from 'fs';
+   *
+   * const result = await new Exec()
+   *   .url(url)
+   *   .filter('mergevideo')
+   *   .on('beforeDownload', (info) => console.log('Starting:', info.title))
+   *   .pipe(createWriteStream('video.mp4'));
+   * ```
+   */
+  pipe(destination, options) {
+    const startTime = Date.now();
+    const stream = this.startStream();
+    return new Promise((resolve, reject) => {
+      stream.pipe(destination, options);
+      destination.on("finish", () => {
+        resolve({
+          bytes: this.totalBytes,
+          duration: Date.now() - startTime,
+          info: this.afterDownloadInfo,
+          output: this.output
+        });
+      });
+      destination.on("error", reject);
+      this.passThrough.on("error", reject);
+    });
+  }
+  /**
+   * Alias for pipe() - for backward compatibility
+   */
+  pipeAsync(destination, options) {
+    return this.pipe(destination, options);
+  }
+  /**
+   * Collect the entire stream into a Buffer
+   */
+  async toBuffer() {
+    const chunks = [];
+    return new Promise((resolve, reject) => {
+      const stream = this.startStream();
+      stream.on("data", (chunk) => {
+        chunks.push(chunk);
+      });
+      stream.on("end", () => {
+        resolve(Buffer.concat(chunks));
+      });
+      stream.on("error", reject);
+    });
+  }
+  /**
+   * Get the underlying PassThrough stream
+   */
+  getStream() {
+    return this.startStream();
+  }
+  /**
+   * Execute the yt-dlp command and return the result (non-pipe mode)
+   */
+  exec() {
+    if (this.resultPromise) {
+      return this.resultPromise;
+    }
+    this.resultPromise = new Promise((resolve, reject) => {
+      try {
+        this.validateBinaryPath();
+        const args = this.buildArgs();
+        const command = `${this.binaryPath} ${args.join(" ")}`;
+        this.printDebugCommandLine(args);
+        this.process = (0, import_node_child_process3.spawn)(this.binaryPath, args, { shell: false });
+        this.emit("start", command);
+        let stdout = "";
+        let stderr = "";
+        this.process.stdout?.on("data", (data) => {
+          const text = data.toString();
+          stdout += text;
+          this.emit("stdout", text);
+          const beforeInfo = parseBeforeDownloadInfo(text);
+          if (beforeInfo) {
+            this.beforeDownloadInfo = beforeInfo;
+            this.emit("beforeDownload", this.beforeDownloadInfo);
+          }
+          this.emit("data", data);
+          const progress = stringToProgress(text);
+          if (progress) {
+            this.emit("progress", progress);
+            if (progress.status === "finished" && this.beforeDownloadInfo) {
+              this.afterDownloadInfo = {
+                ...this.beforeDownloadInfo,
+                filepath: progress.filename
+              };
+              this.emit("afterDownload", this.afterDownloadInfo);
+            }
+          }
+        });
+        this.process.stderr?.on("data", (data) => {
+          const text = data.toString();
+          stderr += text;
+          this.emit("stderr", text);
+          const beforeInfo = parseBeforeDownloadInfo(text);
+          if (beforeInfo) {
+            this.beforeDownloadInfo = beforeInfo;
+            this.emit("beforeDownload", this.beforeDownloadInfo);
+          }
+          const progress = stringToProgress(text);
+          if (progress) {
+            this.emit("progress", progress);
+            if (progress.status === "finished" && this.beforeDownloadInfo) {
+              this.afterDownloadInfo = {
+                ...this.beforeDownloadInfo,
+                filepath: progress.filename
+              };
+              this.emit("afterDownload", this.afterDownloadInfo);
+            }
+          }
+        });
+        this.process.on("error", (error) => {
+          this.emit("error", error);
+          reject(error);
+        });
+        this.process.on("close", (code) => {
+          const output = parsePrintedOutput(stdout);
+          const info = parsePrintedVideoInfo(
+            stdout
+          );
+          const result = {
+            stdout,
+            stderr,
+            exitCode: code,
+            command,
+            info,
+            output,
+            filePaths: info.map((i) => i?.filepath ?? "").filter(Boolean)
+          };
+          this.emit("complete", result);
+          this.emit("end");
+          resolve(result);
+        });
+      } catch (error) {
+        reject(error);
+      }
+    });
+    return this.resultPromise;
+  }
+  /**
+   * Alias for exec() - for convenience
+   */
+  run() {
+    return this.exec();
+  }
+  /**
+   * Make the builder directly awaitable
+   */
+  then(onfulfilled, onrejected) {
+    return this.exec().then(onfulfilled, onrejected);
+  }
+  /**
+   * Catch errors
+   */
+  catch(onrejected) {
+    return this.exec().catch(onrejected);
+  }
+  /**
+   * Finally handler
+   */
+  finally(onfinally) {
+    return this.exec().finally(onfinally);
+  }
+};
+function createExec(url, options) {
+  return new Exec(url, options);
 }
 
 // src/index.ts
@@ -1482,38 +2097,20 @@ var YtDlp = class {
   constructor(opt) {
     this.binaryPath = opt?.binaryPath || findYtdlpBinary() || "";
     this.ffmpegPath = opt?.ffmpegPath || findFFmpegBinary();
-    if (!this.binaryPath || !fs5.existsSync(this.binaryPath)) {
+    if (!this.binaryPath || !fs6.existsSync(this.binaryPath)) {
       console.error(
         new Error(
           "yt-dlp binary not found. Please install yt-dlp or specify correct binaryPath in options."
         )
       );
     }
-    if (this.ffmpegPath && !fs5.existsSync(this.ffmpegPath)) {
+    if (this.ffmpegPath && !fs6.existsSync(this.ffmpegPath)) {
       console.error(
         new Error(
           `FFmpeg binary not found at: ${this.ffmpegPath}. Please install FFmpeg or specify correct ffmpegPath.`
         )
       );
     }
-    if (process.platform !== "win32" && this.binaryPath && this.binaryPath.startsWith(BIN_DIR)) {
-      try {
-        fs5.chmodSync(this.binaryPath, 493);
-      } catch {
-      }
-    }
-  }
-  /** Gets the context for download operations. */
-  getDownloadContext() {
-    return { binaryPath: this.binaryPath, ffmpegPath: this.ffmpegPath };
-  }
-  /** Gets the context for stream operations. */
-  getStreamContext() {
-    return { binaryPath: this.binaryPath, ffmpegPath: this.ffmpegPath };
-  }
-  /** Gets the context for info operations. */
-  getInfoContext() {
-    return { binaryPath: this.binaryPath };
   }
   /**
    * Asynchronously checks if yt-dlp and optionally FFmpeg are installed.
@@ -1525,14 +2122,14 @@ var YtDlp = class {
       if (options?.ffmpeg && !this.ffmpegPath) {
         return reject(new Error("FFmpeg path is not set"));
       }
-      const binaryProcess = (0, import_child_process2.spawn)(this.binaryPath, ["--version"]);
+      const binaryProcess = (0, import_child_process.spawn)(this.binaryPath, ["--version"]);
       let binaryExists = false;
       let ffmpegExists = !options?.ffmpeg;
       binaryProcess.on("error", () => binaryExists = false);
       binaryProcess.on("exit", (code) => {
         binaryExists = code === 0;
         if (options?.ffmpeg) {
-          const ffmpegProcess = (0, import_child_process2.spawn)(this.ffmpegPath, ["-version"]);
+          const ffmpegProcess = (0, import_child_process.spawn)(this.ffmpegPath, ["-version"]);
           ffmpegProcess.on("error", () => ffmpegExists = false);
           ffmpegProcess.on("exit", (code2) => {
             ffmpegExists = code2 === 0;
@@ -1553,87 +2150,11 @@ var YtDlp = class {
     if (options?.ffmpeg && !this.ffmpegPath) {
       throw new Error("FFmpeg path is not set");
     }
-    const binaryResult = (0, import_child_process2.spawnSync)(this.binaryPath, ["--version"], {
+    const binaryResult = (0, import_child_process.spawnSync)(this.binaryPath, ["--version"], {
       stdio: "ignore"
     });
-    const ffmpegResult = options?.ffmpeg ? (0, import_child_process2.spawnSync)(this.ffmpegPath, ["-version"], { stdio: "ignore" }) : { status: 0 };
+    const ffmpegResult = options?.ffmpeg ? (0, import_child_process.spawnSync)(this.ffmpegPath, ["-version"], { stdio: "ignore" }) : { status: 0 };
     return binaryResult.status === 0 && ffmpegResult.status === 0;
-  }
-  /**
-   * Executes yt-dlp asynchronously with the provided URL and options.
-   * @param url - Video URL
-   * @param options - Execution options with optional callbacks
-   * @returns Promise resolving to command output
-   */
-  async execAsync(url, options) {
-    const args = this.buildArgs(url, options || {});
-    const onData = (d) => {
-      options?.onData?.(d);
-      if (options?.onProgress) {
-        const result = stringToProgress(d);
-        if (result) {
-          options.onProgress?.(result);
-        }
-      }
-    };
-    return this._executeAsync(args, onData);
-  }
-  /**
-   * Executes yt-dlp synchronously.
-   * @param url - Video URL
-   * @param options - Execution options
-   * @returns Spawned child process
-   */
-  exec(url, options) {
-    const args = this.buildArgs(url, options || {}, true);
-    return this._execute(args);
-  }
-  _execute(args) {
-    return spawnYtDlp(this.binaryPath, args);
-  }
-  async _executeAsync(args, onData) {
-    if (!this.binaryPath) throw new Error("Ytdlp binary not found");
-    const result = await runYtDlp(this.binaryPath, args, {
-      onStdout: onData,
-      onStderr: onData
-    });
-    return result.stdout;
-  }
-  buildArgs(url, opt, isProgress, extra) {
-    return buildYtDlpArgs({
-      url,
-      options: opt,
-      ffmpegPath: this.ffmpegPath,
-      withProgressTemplate: isProgress,
-      extra
-    });
-  }
-  /**
-   * Downloads a video synchronously.
-   * @param url - Video URL
-   * @param options - Download options
-   * @returns Spawned child process with 'progress' event
-   */
-  download(url, options) {
-    return downloadSync(this.getDownloadContext(), url, options);
-  }
-  /**
-   * Downloads a video asynchronously.
-   * @param url - Video URL
-   * @param options - Download options with progress callback
-   * @returns Promise resolving to DownloadResult with file paths
-   */
-  async downloadAsync(url, options) {
-    return downloadAsync(this.getDownloadContext(), url, options);
-  }
-  /**
-   * Creates a stream for video download.
-   * @param url - Video URL
-   * @param options - Stream options
-   * @returns PipeResponse with pipe and pipeAsync methods
-   */
-  stream(url, options) {
-    return createStream(this.getStreamContext(), url, options);
   }
   /**
    * Fetches video or playlist info.
@@ -1642,7 +2163,207 @@ var YtDlp = class {
    * @returns Promise resolving to VideoInfo or PlaylistInfo
    */
   async getInfoAsync(url, options) {
-    return getInfoAsync(this.getInfoContext(), url, options);
+    const res = await this.execAsync(url, {
+      dumpSingleJson: true,
+      flatPlaylist: true,
+      ...options
+    });
+    return JSON.parse(res.output);
+  }
+  /**
+   * Executes yt-dlp asynchronously with the provided URL and options.
+   * Uses the Exec builder internally for better control and event handling.
+   *
+   * @param url - Video URL
+   * @param options - Execution options with optional callbacks
+   * @returns Promise resolving to command output
+   */
+  async execAsync(url, options) {
+    const builder = new Exec(url, {
+      binaryPath: this.binaryPath,
+      ffmpegPath: this.ffmpegPath
+    });
+    const { onData, onProgress, onBeforeDownload, pipeTo, ...execOptions } = options || {};
+    if (execOptions) {
+      builder.options(execOptions);
+    }
+    if (onData) builder.on("stdout", onData);
+    if (onProgress) builder.on("progress", onProgress);
+    if (onBeforeDownload) builder.on("beforeDownload", onBeforeDownload);
+    if (pipeTo) {
+      return builder.pipe(pipeTo);
+    }
+    return builder.exec();
+  }
+  /**
+   * Executes yt-dlp synchronously with typed events.
+   *
+   * Note: For a more modern fluent API with pipe support and better event handling,
+   * consider using `execBuilder()` instead which returns an Exec builder instance.
+   *
+   * @param url - Video URL
+   * @param options - Execution options
+   * @returns ExecEmitter with typed 'progress', 'data', and 'close' events
+   */
+  exec(url, options) {
+    const builder = new Exec(url, {
+      binaryPath: this.binaryPath,
+      ffmpegPath: this.ffmpegPath
+    });
+    if (options) {
+      builder.options(options);
+    }
+    return builder;
+  }
+  /**
+   * Downloads a video with fluent builder API.
+   * Chain methods like .format(), .quality(), .on() and call .run() to execute.
+   *
+   * @param url - Video URL
+   * @param options - Optional initial format options
+   * @returns Download builder with fluent API
+   *
+   * @example
+   * ```typescript
+   * // With fluent API
+   * const result = await ytdlp
+   *   .download('https://youtube.com/watch?v=...')
+   *   .filter('mergevideo')
+   *   .quality('1080p')
+   *   .on('progress', (p) => console.log(p.percentage_str))
+   *   .run();
+   *
+   * // With initial options
+   * const result = await ytdlp
+   *   .download('https://youtube.com/watch?v=...', {
+   *     format: { filter: 'mergevideo', quality: '1080p' }
+   *   })
+   *   .on('progress', (p) => console.log(p.percentage_str))
+   *   .run();
+   * ```
+   */
+  download(url, options) {
+    const builder = new Download(url, {
+      binaryPath: this.binaryPath,
+      ffmpegPath: this.ffmpegPath
+    });
+    const { format, ...rest } = options || {};
+    if (format) {
+      builder.format(format);
+    }
+    if (rest) {
+      builder.options(rest);
+    }
+    return builder;
+  }
+  /**
+   * Downloads a video asynchronously.
+   * @param url - Video URL
+   * @param options - Download options with progress callback
+   * @returns Promise resolving to DownloadResult with file paths
+   */
+  async downloadAsync(url, options) {
+    const { onProgress, beforeDownload, ...rest } = options || {};
+    const builder = this.download(url, rest);
+    if (onProgress) {
+      builder.on("progress", onProgress);
+    }
+    if (beforeDownload) {
+      builder.on("beforeDownload", beforeDownload);
+    }
+    const result = await builder.run();
+    return {
+      output: result.output,
+      filePaths: result.filePaths,
+      info: result.info
+    };
+  }
+  /**
+   * Creates a stream with fluent builder API.
+   * Chain methods to configure and use .pipe() or .pipeAsync() to stream.
+   *
+   * @param url - Video URL
+   * @param options - Optional initial format options
+   * @returns Stream builder with fluent API
+   *
+   * @example
+   * ```typescript
+   * import { createWriteStream } from 'fs';
+   *
+   * // Fluent builder API
+   * await ytdlp
+   *   .stream('https://youtube.com/watch?v=...')
+   *   .filter('audioandvideo')
+   *   .quality('highest')
+   *   .type('mp4')
+   *   .on('progress', (p) => console.log(p.percentage_str))
+   *   .pipeAsync(createWriteStream('video.mp4'));
+   *
+   * // With initial options
+   * await ytdlp
+   *   .stream(url, { format: { filter: 'audioandvideo' } })
+   *   .pipeAsync(createWriteStream('video.mp4'));
+   * ```
+   */
+  stream(url, options) {
+    const builder = new Stream(url, {
+      binaryPath: this.binaryPath,
+      ffmpegPath: this.ffmpegPath
+    });
+    const { format, ...rest } = options || {};
+    if (format) {
+      builder.format(format);
+    }
+    if (rest) {
+      builder.options(rest);
+    }
+    return builder;
+  }
+  /**
+   * Creates an exec builder with fluent API for arbitrary yt-dlp commands.
+   * Combines features from Download and Stream builders.
+   *
+   * Supports both execution modes (get stdout/stderr) and pipe mode (stream to file).
+   *
+   * @param url - Video URL
+   * @param options - Optional initial format options
+   * @returns Exec builder with fluent API
+   *
+   * @example
+   * ```typescript
+   * import { createWriteStream } from 'fs';
+   *
+   * // Execute arbitrary command and get output
+   * const result = await ytdlp
+   *   .execBuilder('https://youtube.com/watch?v=...')
+   *   .addArgs('--dump-single-json')
+   *   .exec();
+   *
+   * console.log('Output:', result.stdout);
+   *
+   * // Pipe to file with download events
+   * await ytdlp
+   *   .execBuilder('https://youtube.com/watch?v=...')
+   *   .filter('mergevideo')
+   *   .quality('720p')
+   *   .on('beforeDownload', (info) => console.log('Starting:', info.title))
+   *   .on('afterDownload', (info) => console.log('Finished:', info.filepath))
+   *   .pipe(createWriteStream('video.mp4'));
+   * ```
+   */
+  execBuilder(url, options) {
+    const builder = new Exec(url, {
+      binaryPath: this.binaryPath,
+      ffmpegPath: this.ffmpegPath
+    });
+    const { format, ...rest } = options || {};
+    if (format) {
+      builder.format(format);
+    }
+    if (rest) {
+      builder.options(rest);
+    }
+    return builder;
   }
   /**
    * Downloads audio only.
@@ -1709,7 +2430,7 @@ var YtDlp = class {
    * @param options - Additional options
    */
   async getSubtitles(url, options) {
-    const result = await this.downloadAsync(url, {
+    const result = await this.execAsync(url, {
       ...options,
       listSubs: true,
       skipDownload: true
@@ -1724,7 +2445,7 @@ var YtDlp = class {
    * @param options - Additional options
    */
   async getComments(url, maxComments = 20, options) {
-    const result = await this.downloadAsync(url, {
+    const result = await this.execAsync(url, {
       ...options,
       writeComments: true,
       dumpSingleJson: true,
@@ -1747,7 +2468,8 @@ var YtDlp = class {
    * @returns Promise resolving to array of URLs
    */
   async getDirectUrlsAsync(url, options) {
-    return getDirectUrlsAsync(this.getInfoContext(), url, options);
+    const info = await this.getInfoAsync(url, options);
+    return info.formats.map((f) => f.url);
   }
   /**
    * Gets formats, preferring JSON with fallback to table parsing.
@@ -1756,7 +2478,12 @@ var YtDlp = class {
    * @returns Promise resolving to FormatsResult
    */
   async getFormatsAsync(url, options) {
-    return getFormatsAsync(this.getInfoContext(), url, options);
+    const info = await this.getInfoAsync(url, options);
+    return {
+      source: "json",
+      info,
+      formats: info.formats
+    };
   }
   /**
    * Fetches video thumbnails.
@@ -1764,7 +2491,8 @@ var YtDlp = class {
    * @returns Promise resolving to array of VideoThumbnail
    */
   async getThumbnailsAsync(url) {
-    return getThumbnailsAsync(this.getInfoContext(), url);
+    const info = await this.getInfoAsync(url);
+    return info.thumbnails;
   }
   /**
    * Fetches video title.
@@ -1772,14 +2500,20 @@ var YtDlp = class {
    * @returns Promise resolving to title string
    */
   async getTitleAsync(url) {
-    return getTitleAsync(this.getInfoContext(), url);
+    const result = await this.execAsync(url, {
+      print: "title"
+    });
+    return result.output.trim();
   }
   /**
    * Gets yt-dlp version.
    * @returns Promise resolving to version string
    */
   async getVersionAsync() {
-    return getVersionAsync(this.getInfoContext());
+    const result = await this.execAsync("", {
+      printVersion: true
+    });
+    return result.output.trim();
   }
   /**
    * Downloads FFmpeg binaries.
@@ -1790,14 +2524,65 @@ var YtDlp = class {
   }
   /**
    * Gets video/audio content as a File object.
-   * Optimized: Uses --print before_dl:%(title)s.%(ext)s to capture
-   * filename during download - no separate info fetch required.
+   * Downloads the media to memory and returns a File object.
    * @param url - Video URL
    * @param options - File options with progress callback
    * @returns Promise resolving to File object
    */
   async getFileAsync(url, options) {
-    return getFileAsync(this.getStreamContext(), url, options);
+    let info;
+    const {
+      onBeforeDownload,
+      onProgress,
+      filename,
+      metadata,
+      format,
+      ...rest
+    } = options || {};
+    const chunks = [];
+    const passThrough = new import_stream.PassThrough();
+    passThrough.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    const formatArgs = parseFormatOptions(format);
+    const execOptions = { ...rest };
+    if (formatArgs.length >= 2 && formatArgs[0] === "-f") {
+      execOptions.format = formatArgs[1];
+    }
+    if (formatArgs.includes("--merge-output-format")) {
+      const idx = formatArgs.indexOf("--merge-output-format");
+      execOptions.mergeOutputFormat = formatArgs[idx + 1];
+    }
+    await this.execAsync(url, {
+      ...execOptions,
+      noPlaylist: true,
+      pipeTo: passThrough,
+      onProgress,
+      onBeforeDownload: (p) => {
+        info = p;
+        onBeforeDownload?.(p);
+      },
+      output: "-"
+    });
+    let contentType;
+    let extension;
+    if (format && typeof format === "object") {
+      contentType = getContentType(format);
+      extension = getFileExtension(format);
+    } else {
+      const fromArgs = getContentTypeFromArgs(rest);
+      contentType = fromArgs || "video/mp4";
+      const extFromArgs = getFileExtensionFromArgs(rest);
+      extension = extFromArgs || "mp4";
+    }
+    const blob = new import_buffer.Blob(chunks, { type: contentType });
+    const defaultMetadata = {
+      name: filename || `${info?.title || "download"}.${extension}`,
+      type: contentType,
+      size: blob.size,
+      ...metadata
+    };
+    return new File([Buffer.concat(chunks)], defaultMetadata.name, {
+      type: defaultMetadata.type
+    });
   }
   /**
    * Gets media URLs using --print urls.
@@ -1806,7 +2591,11 @@ var YtDlp = class {
    * @returns Promise resolving to array of URLs
    */
   async getUrlsAsync(url, options) {
-    return getUrlsAsync(this.getInfoContext(), url, options);
+    const result = await this.execAsync(url, {
+      ...options,
+      print: "urls"
+    });
+    return result.output.split("\n").filter(Boolean);
   }
   /**
    * Updates yt-dlp to the latest version.
@@ -1817,7 +2606,7 @@ var YtDlp = class {
     const preferBuiltIn = options?.preferBuiltIn !== false;
     if (preferBuiltIn && this.binaryPath) {
       try {
-        await runYtDlp(this.binaryPath, ["--update"]);
+        await this.execAsync("", { update: true });
         const version2 = await this.getVersionAsync().catch(() => void 0);
         return {
           method: "built-in",
@@ -1831,7 +2620,9 @@ var YtDlp = class {
     const verifyChecksum = options?.verifyChecksum !== false;
     if (verifyChecksum) {
       const result = await downloadYtDlpVerified(outDir);
-      const version2 = await runYtDlp(result.path, ["--version"]).then((res) => res.stdout.trim()).catch(() => void 0);
+      const version2 = await this.getVersionAsyncUsingBinary(result.path).catch(
+        () => void 0
+      );
       return {
         method: "download",
         binaryPath: result.path,
@@ -1840,13 +2631,41 @@ var YtDlp = class {
       };
     }
     const downloadedPath = await downloadYtDlp(outDir);
-    const version = await runYtDlp(downloadedPath, ["--version"]).then((res) => res.stdout.trim()).catch(() => void 0);
+    const version = await this.getVersionAsyncUsingBinary(downloadedPath).catch(
+      () => void 0
+    );
     return {
       method: "download",
       binaryPath: downloadedPath,
       version,
       verified: false
     };
+  }
+  /**
+   * Gets version using a specific binary path.
+   * @param binaryPath - Path to the yt-dlp binary
+   * @returns Promise resolving to version string
+   */
+  async getVersionAsyncUsingBinary(binaryPath) {
+    return new Promise((resolve, reject) => {
+      const process2 = (0, import_child_process.spawn)(binaryPath, ["--version"]);
+      let stdout = "";
+      let stderr = "";
+      process2.stdout?.on("data", (data) => {
+        stdout += data.toString();
+      });
+      process2.stderr?.on("data", (data) => {
+        stderr += data.toString();
+      });
+      process2.on("close", (code) => {
+        if (code === 0) {
+          resolve(stdout.trim());
+        } else {
+          reject(new Error(`Failed to get version: ${stderr}`));
+        }
+      });
+      process2.on("error", reject);
+    });
   }
 };
 var helpers = {
@@ -1868,6 +2687,12 @@ var helpers = {
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   BIN_DIR,
+  Download,
+  Exec,
+  Stream,
   YtDlp,
+  createDownload,
+  createExec,
+  createStreamBuilder,
   helpers
 });
