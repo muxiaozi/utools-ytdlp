@@ -6,7 +6,7 @@ import { useDark } from "@vueuse/core";
 import * as ElementPlusIconsVue from "@element-plus/icons-vue";
 import { DownloadQueue } from "./download_queue";
 import zhCn from "element-plus/es/locale/lang/zh-cn";
-import { componentState, prepareDownload } from "./store";
+import { componentState, downloadState } from "./store";
 
 import "element-plus/dist/index.css";
 import "element-plus/theme-chalk/dark/css-vars.css";
@@ -41,13 +41,13 @@ utools.onPluginEnter(async ({ code, type, payload }) => {
     switch (type) {
       case "window": {
         let url = await utools.readCurrentBrowserUrl();
-        prepareDownload.url = url;
-        prepareDownload.dialogVisible = true;
+        downloadState.url = url;
+        downloadState.prepareDialogVisible = true;
         break;
       }
       case "regex": {
-        prepareDownload.url = payload;
-        prepareDownload.dialogVisible = true;
+        downloadState.url = payload;
+        downloadState.prepareDialogVisible = true;
         break;
       }
     }

@@ -110,14 +110,14 @@
       :page-sizes="[10, 20, 50]"
       background
       layout="total, sizes, prev, pager, next"
-      :total="videoItems.length"
+      :total="downloadState.videos.length"
       @size-change="onSizeChange"
       @current-change="onCurrentChange"
       style="margin-top: 10px"
     />
 
     <el-dialog
-      v-model="prepareDownload.dialogVisible"
+      v-model="downloadState.prepareDialogVisible"
       title="新建下载任务"
       width="90%"
       :close-on-click-modal="false"
@@ -203,7 +203,7 @@ import {
 } from "@element-plus/icons-vue";
 import PrepareDownload from "./PrepareDownload.vue";
 import { DisplayVideoItem, VideoItem } from "../types";
-import { prepareDownload, globalSetting, videoItems } from "../store";
+import { downloadState, globalSettingState } from "../store";
 import {
   formatSize,
   formatDuration,
@@ -218,7 +218,7 @@ import { DownloadQueue } from "../download_queue";
 const tableData = computed(() => {
   const start = (tableCurrentPage.value - 1) * tablePageSize.value;
   const end = start + tablePageSize.value;
-  const items = _.slice(videoItems, start, end);
+  const items = _.slice(downloadState.videos, start, end);
   for (const item of items) {
     if (item.state == "pending") {
       item.state = window.fileExists(makeFilePath(item))
@@ -261,7 +261,7 @@ function onSizeChange(size: number) {
 }
 
 function onPrepareDownloadDialogClosed() {
-  prepareDownload.url = "";
+  downloadState.url = "";
   createTaskDialogKey.value++;
 }
 
@@ -272,12 +272,12 @@ async function onSelectionChange(items: DisplayVideoItem[]) {
 async function startDownload(items: VideoItem[]) {
   const itemToDownload: DisplayVideoItem[] = [];
   for (const item of items) {
-    let displayItem = videoItems.find((v) => v.id === item.id);
+    let displayItem = downloadState.videos.find((v) => v.id === item.id);
     if (!displayItem) {
-      const videoCount = globalSetting.videoCount;
+      const videoCount = globalSettingState.videoCount;
 
       // 下载时品质以全局设置为准
-      item.quality = globalSetting.quality;
+      item.quality = globalSettingState.quality;
       // 添加到表格
       displayItem = reactive<DisplayVideoItem>({
         ...item,
@@ -289,7 +289,7 @@ async function startDownload(items: VideoItem[]) {
 
       // 保存到数据库
       utools.dbStorage.setItem("videos/" + videoCount, _.cloneDeep(item));
-      globalSetting.videoCount = videoCount + 1;
+      globalSettingState.videoCount = videoCount + 1;
     } else {
       // 重置状态
       displayItem.progress = 0;
@@ -307,11 +307,11 @@ async function startDownload(items: VideoItem[]) {
       });
   }
 
-  videoItems.unshift(...itemToDownload);
+  downloadState.videos.unshift(...itemToDownload);
 }
 
 function openCreateDialog() {
-  prepareDownload.dialogVisible = true;
+  downloadState.prepareDialogVisible = true;
 }
 
 function openSetting() {
@@ -333,9 +333,9 @@ function openDetail(row: DisplayVideoItem) {
 
 function doDeleteVideo(row: DisplayVideoItem) {
   utools.dbStorage.removeItem("videos/" + row.index);
-  const index = videoItems.findIndex((item) => item.id === row.id);
+  const index = downloadState.videos.findIndex((item) => item.id === row.id);
   if (index > -1) {
-    videoItems.splice(index, 1);
+    downloadState.videos.splice(index, 1);
   }
 }
 

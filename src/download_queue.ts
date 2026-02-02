@@ -1,6 +1,6 @@
 import { DisplayVideoItem } from "./types";
-import { globalSetting, localSetting } from "./store";
-import { makeFilePath, makeYtdlpFormat } from "./utils";
+import { globalSettingState, localSettingState } from "./store";
+import { makeYtdlpFormat } from "./utils";
 import _ from "lodash";
 
 type DownloadResult = {
@@ -61,23 +61,19 @@ export class DownloadQueue {
   // 执行下载
   private async download(item: DisplayVideoItem): Promise<DownloadResult> {
     return new Promise((resolve, reject) => {
-      let progressCompleted = false;
-
-      // 设置超时检测（如果下载卡住）
-      const timeout = setTimeout(() => {
-        if (!progressCompleted) {
-          reject(new Error("下载超时"));
-        }
-      }, 3600000); // 1小时超时
-
       window.ytdlp
         .downloadAsync(item.url, {
-          output: window.pathJoin(localSetting.outputDir, "%(id)s.%(ext)s"),
-          format: makeYtdlpFormat(globalSetting.quality),
-          cookies: localSetting.cookiePath,
-          proxy: localSetting.useProxy ? localSetting.proxy : undefined,
-          jsRuntime: localSetting.denoPath
-            ? `deno:${localSetting.denoPath}`
+          output: window.pathJoin(
+            localSettingState.outputDir,
+            "%(id)s.%(ext)s",
+          ),
+          format: makeYtdlpFormat(globalSettingState.quality),
+          cookies: localSettingState.cookiePath,
+          proxy: localSettingState.useProxy
+            ? localSettingState.proxy
+            : undefined,
+          jsRuntime: localSettingState.denoPath
+            ? `deno:${localSettingState.denoPath}`
             : "node",
           onProgress: (progress) => {
             item.progress = _.isNumber(progress.percentage)
@@ -85,16 +81,8 @@ export class DownloadQueue {
               : 0;
           },
         })
-        .then((result) => {
-          clearTimeout(timeout);
-          progressCompleted = true;
-          resolve(result);
-        })
-        .catch((err) => {
-          clearTimeout(timeout);
-          progressCompleted = true;
-          reject(err);
-        });
+        .then(resolve)
+        .catch(reject);
     });
   }
 

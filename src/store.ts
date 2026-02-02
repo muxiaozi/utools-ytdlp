@@ -9,7 +9,7 @@ import {
 } from "./types";
 
 // LocalSetting
-const localSetting = reactive<LocalSetting>({
+const localSettingState = reactive<LocalSetting>({
   ytdlpPath: "",
   ytdlpSha256: "",
   ffmpegPath: "",
@@ -24,42 +24,49 @@ const localSetting = reactive<LocalSetting>({
   cookiePath: undefined,
 });
 const localSettingKey = utools.getNativeId() + "/setting";
-const updateLocalSetting = _.debounce((setting: LocalSetting) => {
+watch(localSettingState, (setting: LocalSetting) => {
   utools.dbStorage.setItem(localSettingKey, _.cloneDeep(setting));
-}, 1000);
-watch(localSetting, updateLocalSetting);
+});
 
-let localSetting_ = utools.dbStorage.getItem(localSettingKey);
-if (localSetting_) {
-  Object.assign(localSetting, localSetting_);
+let localSetting = utools.dbStorage.getItem(localSettingKey);
+if (localSetting) {
+  Object.assign(localSettingState, localSetting);
 }
 
 // GlobalSetting
-const globalSetting = reactive<GlobalSetting>({
+const globalSettingState = reactive<GlobalSetting>({
   quality: "highest",
   codec: "h265",
   videoCount: 0,
 });
 const globalSettingKey = "global/setting";
-const updateGlobalSetting = _.debounce((setting: GlobalSetting) => {
+watch(globalSettingState, (setting: GlobalSetting) => {
   utools.dbStorage.setItem(globalSettingKey, _.cloneDeep(setting));
-}, 1000);
-watch(globalSetting, updateGlobalSetting);
+});
 
-let globalSetting_ = utools.dbStorage.getItem(globalSettingKey);
-if (globalSetting_) {
-  Object.assign(globalSetting, globalSetting_);
+let globalSetting = utools.dbStorage.getItem(globalSettingKey);
+if (globalSetting) {
+  Object.assign(globalSettingState, globalSetting);
 }
 
-// VideoItems
-const videoItems = reactive<DisplayVideoItem[]>([]);
-for (let i = 0; i < globalSetting.videoCount; i++) {
+// DownloadState
+const downloadState = reactive<{
+  url: string;
+  prepareDialogVisible: boolean;
+  videos: DisplayVideoItem[];
+}>({
+  url: "",
+  prepareDialogVisible: false,
+  videos: [],
+});
+
+for (let i = 0; i < globalSettingState.videoCount; i++) {
   const videoItem = utools.dbStorage.getItem<VideoItem>("videos/" + i);
   if (!videoItem) {
     continue;
   }
 
-  videoItems.unshift({
+  downloadState.videos.unshift({
     ...videoItem,
     state: "pending",
     progress: 0,
@@ -67,24 +74,9 @@ for (let i = 0; i < globalSetting.videoCount; i++) {
   });
 }
 
-// PrepareDownload
-const prepareDownload = reactive<{
-  url: string;
-  dialogVisible: boolean;
-}>({
-  url: "",
-  dialogVisible: false,
-});
-
-// ComponentSha256
+// ComponentState
 const componentState = reactive<{
   metadata?: ComponentMetadata;
 }>({});
 
-export {
-  localSetting,
-  globalSetting,
-  videoItems,
-  prepareDownload,
-  componentState,
-};
+export { localSettingState, globalSettingState, downloadState, componentState };

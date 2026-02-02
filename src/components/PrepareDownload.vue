@@ -2,7 +2,7 @@
   <div>
     <div style="display: flex; gap: 10px">
       <el-input
-        v-model="prepareDownload.url"
+        v-model="downloadState.url"
         clearable
         placeholder="请输入视频链接"
         @input="onUrlChanged"
@@ -50,7 +50,7 @@
 import { ref, computed } from "vue";
 import { VideoItem } from "../types";
 import { formatSize, formatDuration, formatQuality } from "../utils";
-import { localSetting, prepareDownload } from "../store";
+import { localSettingState, downloadState } from "../store";
 import { ElMessageBox } from "element-plus";
 
 const btnState = ref<"analyize" | "download">("analyize");
@@ -64,7 +64,7 @@ const tableData = ref<VideoItem[]>([]);
 const multipleSelection = ref<VideoItem[]>([]);
 const btnEnabled = computed(() => {
   return (
-    (btnState.value === "analyize" && prepareDownload.url != "") ||
+    (btnState.value === "analyize" && downloadState.url != "") ||
     (btnState.value === "download" && multipleSelection.value.length > 0)
   );
 });
@@ -85,7 +85,7 @@ const onClick = () => {
     analyzeLink();
   } else {
     emits("download", multipleSelection.value);
-    prepareDownload.dialogVisible = false;
+    downloadState.prepareDialogVisible = false;
   }
 };
 
@@ -121,14 +121,14 @@ function collectVideoItem(result: any): VideoItem[] {
 
 const analyzeLink = async () => {
   tableData.value = [];
-  console.log("分析链接:", prepareDownload.url);
+  console.log("分析链接:", downloadState.url);
   try {
     btnLoading.value = true;
-    let result = await window.ytdlp.getInfoAsync(prepareDownload.url, {
-      cookies: localSetting.cookiePath,
-      proxy: localSetting.useProxy ? localSetting.proxy : undefined,
-      jsRuntime: localSetting.denoPath
-        ? `deno:${localSetting.denoPath}`
+    let result = await window.ytdlp.getInfoAsync(downloadState.url, {
+      cookies: localSettingState.cookiePath,
+      proxy: localSettingState.useProxy ? localSettingState.proxy : undefined,
+      jsRuntime: localSettingState.denoPath
+        ? `deno:${localSettingState.denoPath}`
         : "node",
     });
     console.log("分析结果:", result);

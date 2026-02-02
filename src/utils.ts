@@ -1,4 +1,4 @@
-import { componentState, localSetting } from "./store";
+import { componentState, localSettingState } from "./store";
 import { ComponentMetadata, VideoItem, VideoQuality } from "./types";
 
 export async function isPrepared(): Promise<boolean> {
@@ -6,13 +6,13 @@ export async function isPrepared(): Promise<boolean> {
     return true;
   }
 
-  let ffmpegPath = localSetting.ffmpegPath;
+  let ffmpegPath = localSettingState.ffmpegPath;
   if (!ffmpegPath) {
     console.error("ffmpegPath is not set");
     return false;
   }
 
-  let ytdlpPath = localSetting.ytdlpPath;
+  let ytdlpPath = localSettingState.ytdlpPath;
   if (!ytdlpPath) {
     console.error("ytdlpPath is not set");
     return false;
@@ -138,7 +138,7 @@ export function makeUploaderLink(
 }
 
 export function makeFilePath(row: VideoItem) {
-  return window.pathJoin(localSetting.outputDir, row.id + "." + row.ext);
+  return window.pathJoin(localSettingState.outputDir, row.id + "." + row.ext);
 }
 
 export function getUpdatableComponents(): Array<string> {
@@ -146,13 +146,13 @@ export function getUpdatableComponents(): Array<string> {
     return [];
   }
   let updateList = [];
-  if (localSetting.ytdlpSha256 !== componentState.metadata!.ytdlp.sha256) {
+  if (localSettingState.ytdlpSha256 !== componentState.metadata!.ytdlp.sha256) {
     updateList.push("yt-dlp");
   }
-  if (localSetting.ffmpegSha256 !== componentState.metadata!.ffmpeg.sha256) {
+  if (localSettingState.ffmpegSha256 !== componentState.metadata!.ffmpeg.sha256) {
     updateList.push("ffmpeg");
   }
-  if (localSetting.denoSha256 !== componentState.metadata!.deno.sha256) {
+  if (localSettingState.denoSha256 !== componentState.metadata!.deno.sha256) {
     updateList.push("deno");
   }
   return updateList;

@@ -18,7 +18,7 @@
 
     <el-form label-width="auto" class="setting-form">
       <el-form-item label="下载质量">
-        <el-radio-group v-model="globalSetting.quality">
+        <el-radio-group v-model="globalSettingState.quality">
           <el-radio value="highest">最高</el-radio>
           <el-radio value="2160p">4K</el-radio>
           <el-radio value="1440p">2K</el-radio>
@@ -30,7 +30,7 @@
       </el-form-item>
       <el-form-item label="下载目录">
         <div class="singleline-box">
-          <el-input v-model="localSetting.outputDir" readonly style="flex: 1" />
+          <el-input v-model="localSettingState.outputDir" readonly style="flex: 1" />
           <el-button-group>
             <el-button @click="selectOutputDir">选择目录</el-button>
             <el-button @click="openOutputDir">打开目录</el-button>
@@ -40,7 +40,7 @@
       <el-form-item label="YtDlp 路径">
         <div class="singleline-box">
           <el-input
-            v-model="localSetting.ytdlpPath"
+            v-model="localSettingState.ytdlpPath"
             readonly
             :suffix-icon="ytdlpPathIcon"
           />
@@ -50,7 +50,7 @@
       <el-form-item label="FFmpeg 路径">
         <div class="singleline-box">
           <el-input
-            v-model="localSetting.ffmpegPath"
+            v-model="localSettingState.ffmpegPath"
             readonly
             :suffix-icon="ffmpegPathIcon"
           />
@@ -60,7 +60,7 @@
       <el-form-item label="Deno 路径">
         <div class="singleline-box">
           <el-input
-            v-model="localSetting.denoPath"
+            v-model="localSettingState.denoPath"
             readonly
             :suffix-icon="denoPathIcon"
           />
@@ -69,18 +69,18 @@
       </el-form-item>
       <el-form-item label="Cookie 路径">
         <div class="singleline-box">
-          <el-input v-model="localSetting.cookiePath" readonly />
+          <el-input v-model="localSettingState.cookiePath" readonly />
           <el-button @click="selectCookieFile">选择文件</el-button>
         </div>
       </el-form-item>
       <el-form-item label="代理地址">
         <div class="singleline-box">
           <el-input
-            v-model="localSetting.proxy"
-            :disabled="!localSetting.useProxy"
+            v-model="localSettingState.proxy"
+            :disabled="!localSettingState.useProxy"
             placeholder="例如 http://127.0.0.1:1080"
           />
-          <el-checkbox border v-model="localSetting.useProxy">启用</el-checkbox>
+          <el-checkbox border v-model="localSettingState.useProxy">启用</el-checkbox>
         </div>
       </el-form-item>
     </el-form>
@@ -91,15 +91,15 @@
 import { onMounted, computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { localSetting, globalSetting, componentState } from "../store";
+import { localSettingState, globalSettingState, componentState } from "../store";
 import { getUpdatableComponents, exename } from "../utils";
 
 const router = useRouter();
 const downloadComponentsVisible = computed(() => {
   return (
-    !localSetting.ytdlpPath ||
-    !localSetting.ffmpegPath ||
-    !localSetting.denoPath ||
+    !localSettingState.ytdlpPath ||
+    !localSettingState.ffmpegPath ||
+    !localSettingState.denoPath ||
     getUpdatableComponents().length > 0
   );
 });
@@ -109,8 +109,8 @@ const ytdlpPathIcon = computed(() => {
     return "";
   }
   if (
-    !localSetting.ytdlpPath ||
-    localSetting.ytdlpSha256 !== componentState.metadata!.ytdlp.sha256
+    !localSettingState.ytdlpPath ||
+    localSettingState.ytdlpSha256 !== componentState.metadata!.ytdlp.sha256
   ) {
     return "Download";
   }
@@ -121,8 +121,8 @@ const ffmpegPathIcon = computed(() => {
     return "";
   }
   if (
-    !localSetting.ffmpegPath ||
-    localSetting.ffmpegSha256 !== componentState.metadata!.ffmpeg.sha256
+    !localSettingState.ffmpegPath ||
+    localSettingState.ffmpegSha256 !== componentState.metadata!.ffmpeg.sha256
   ) {
     return "Download";
   }
@@ -133,8 +133,8 @@ const denoPathIcon = computed(() => {
     return "";
   }
   if (
-    !localSetting.denoPath ||
-    localSetting.denoSha256 !== componentState.metadata!.deno.sha256
+    !localSettingState.denoPath ||
+    localSettingState.denoSha256 !== componentState.metadata!.deno.sha256
   ) {
     return "Download";
   }
@@ -182,30 +182,30 @@ const goBack = () => {
 const selectOutputDir = () => {
   const path = utools.showOpenDialog({
     title: "选择下载目录",
-    defaultPath: localSetting.outputDir,
+    defaultPath: localSettingState.outputDir,
     properties: ["openDirectory"],
   });
   if (path && path.length > 0) {
-    localSetting.outputDir = path[0];
+    localSettingState.outputDir = path[0];
   }
 };
 
 const openOutputDir = () => {
-  utools.shellOpenPath(localSetting.outputDir);
+  utools.shellOpenPath(localSettingState.outputDir);
 };
 
 const selectYtdlpFile = async () => {
   const path = utools.showOpenDialog({
     title: "选择 YtDlp 可执行文件",
-    defaultPath: localSetting.ytdlpPath,
+    defaultPath: localSettingState.ytdlpPath,
     properties: ["openFile"],
   });
   if (path && path.length > 0) {
-    localSetting.ytdlpPath = path[0];
-    localSetting.ytdlpSha256 = await window.fileSha256(localSetting.ytdlpPath);
+    localSettingState.ytdlpPath = path[0];
+    localSettingState.ytdlpSha256 = await window.fileSha256(localSettingState.ytdlpPath);
     window.ytdlp.init({
-      ffmpegPath: localSetting.ffmpegPath,
-      binaryPath: localSetting.ytdlpPath,
+      ffmpegPath: localSettingState.ffmpegPath,
+      binaryPath: localSettingState.ytdlpPath,
     });
   }
 };
@@ -213,17 +213,17 @@ const selectYtdlpFile = async () => {
 const selectFFmpegFile = async () => {
   const path = utools.showOpenDialog({
     title: "选择 FFmpeg 可执行文件",
-    defaultPath: localSetting.ffmpegPath,
+    defaultPath: localSettingState.ffmpegPath,
     properties: ["openFile"],
   });
   if (path && path.length > 0) {
-    localSetting.ffmpegPath = path[0];
-    localSetting.ffmpegSha256 = await window.fileSha256(
-      localSetting.ffmpegPath,
+    localSettingState.ffmpegPath = path[0];
+    localSettingState.ffmpegSha256 = await window.fileSha256(
+      localSettingState.ffmpegPath,
     );
     window.ytdlp.init({
-      ffmpegPath: localSetting.ffmpegPath,
-      binaryPath: localSetting.ytdlpPath,
+      ffmpegPath: localSettingState.ffmpegPath,
+      binaryPath: localSettingState.ytdlpPath,
     });
   }
 };
@@ -231,24 +231,24 @@ const selectFFmpegFile = async () => {
 const selectDenoFile = async () => {
   const path = utools.showOpenDialog({
     title: "选择 Deno 可执行文件",
-    defaultPath: localSetting.denoPath,
+    defaultPath: localSettingState.denoPath,
     properties: ["openFile"],
   });
   if (path && path.length > 0) {
-    localSetting.denoPath = path[0];
-    localSetting.denoSha256 = await window.fileSha256(localSetting.denoPath);
+    localSettingState.denoPath = path[0];
+    localSettingState.denoSha256 = await window.fileSha256(localSettingState.denoPath);
   }
 };
 
 const selectCookieFile = () => {
   const path = utools.showOpenDialog({
     title: "选择 Cookie 文件",
-    defaultPath: localSetting.cookiePath,
+    defaultPath: localSettingState.cookiePath,
     properties: ["openFile"],
     filters: [{ name: "Cookie Files", extensions: ["txt"] }],
   });
   if (path && path.length > 0) {
-    localSetting.cookiePath = path[0];
+    localSettingState.cookiePath = path[0];
   }
 };
 
@@ -264,9 +264,9 @@ const installComponents = async () => {
     downloadComponentsLoading.value = true;
     console.log("Checking YtDlp");
     if (
-      !localSetting.ytdlpPath ||
-      !window.fileExists(localSetting.ytdlpPath) ||
-      localSetting.ytdlpSha256 !== componentState.metadata!.ytdlp.sha256
+      !localSettingState.ytdlpPath ||
+      !window.fileExists(localSettingState.ytdlpPath) ||
+      localSettingState.ytdlpSha256 !== componentState.metadata!.ytdlp.sha256
     ) {
       const outputPath = window.pathJoin(componentsDir, exename("yt-dlp"));
       console.log("Downloading yt-dlp to:", outputPath);
@@ -274,8 +274,8 @@ const installComponents = async () => {
         componentState.metadata!.ytdlp.url,
         outputPath,
       );
-      localSetting.ytdlpPath = outputPath;
-      localSetting.ytdlpSha256 = await window.fileSha256(outputPath);
+      localSettingState.ytdlpPath = outputPath;
+      localSettingState.ytdlpSha256 = await window.fileSha256(outputPath);
       try {
         window.chmod(outputPath, 0o755);
       } catch (_err) {}
@@ -283,9 +283,9 @@ const installComponents = async () => {
 
     console.log("Checking FFmpeg");
     if (
-      !localSetting.ffmpegPath ||
-      !window.fileExists(localSetting.ffmpegPath) ||
-      localSetting.ffmpegSha256 !== componentState.metadata!.ffmpeg.sha256
+      !localSettingState.ffmpegPath ||
+      !window.fileExists(localSettingState.ffmpegPath) ||
+      localSettingState.ffmpegSha256 !== componentState.metadata!.ffmpeg.sha256
     ) {
       const outputPath = window.pathJoin(componentsDir, exename("ffmpeg"));
       console.log("Downloading ffmpeg to:", outputPath);
@@ -293,8 +293,8 @@ const installComponents = async () => {
         componentState.metadata!.ffmpeg.url,
         outputPath,
       );
-      localSetting.ffmpegPath = outputPath;
-      localSetting.ffmpegSha256 = await window.fileSha256(outputPath);
+      localSettingState.ffmpegPath = outputPath;
+      localSettingState.ffmpegSha256 = await window.fileSha256(outputPath);
       try {
         window.chmod(outputPath, 0o755);
       } catch (_err) {}
@@ -302,9 +302,9 @@ const installComponents = async () => {
 
     console.log("Checking Deno");
     if (
-      !localSetting.denoPath ||
-      !window.fileExists(localSetting.denoPath) ||
-      localSetting.denoSha256 !== componentState.metadata!.deno.sha256
+      !localSettingState.denoPath ||
+      !window.fileExists(localSettingState.denoPath) ||
+      localSettingState.denoSha256 !== componentState.metadata!.deno.sha256
     ) {
       const outputPath = window.pathJoin(componentsDir, exename("deno"));
       console.log("Downloading deno to:", outputPath);
@@ -312,16 +312,16 @@ const installComponents = async () => {
         componentState.metadata!.deno.url,
         outputPath,
       );
-      localSetting.denoPath = outputPath;
-      localSetting.denoSha256 = await window.fileSha256(outputPath);
+      localSettingState.denoPath = outputPath;
+      localSettingState.denoSha256 = await window.fileSha256(outputPath);
       try {
         window.chmod(outputPath, 0o755);
       } catch (_err) {}
     }
 
     window.ytdlp.init({
-      binaryPath: localSetting.ytdlpPath,
-      ffmpegPath: localSetting.ffmpegPath,
+      binaryPath: localSettingState.ytdlpPath,
+      ffmpegPath: localSettingState.ffmpegPath,
     });
     ElMessage({
       type: "success",
