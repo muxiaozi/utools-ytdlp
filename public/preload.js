@@ -88,8 +88,6 @@ window.ytdlp = {
       cookies: options.cookies,
       onProgress: options.onProgress,
       jsRuntime: options.jsRuntime,
-      additionalOptions: options.additionalOptions,
-      recodeVideo: "mp4",
     });
   },
   // 获取视频信息
@@ -102,7 +100,6 @@ window.ytdlp = {
       proxy: options.proxy,
       cookies: options.cookies,
       jsRuntime: options.jsRuntime,
-      additionalOptions: options.additionalOptions,
     });
   },
 };

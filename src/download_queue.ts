@@ -72,7 +72,7 @@ export class DownloadQueue {
 
       window.ytdlp
         .downloadAsync(item.url, {
-          output: makeFilePath(item),
+          output: window.pathJoin(localSetting.outputDir, "%(id)s.%(ext)s"),
           format: makeYtdlpFormat(globalSetting.quality),
           cookies: localSetting.cookiePath,
           proxy: localSetting.useProxy ? localSetting.proxy : undefined,

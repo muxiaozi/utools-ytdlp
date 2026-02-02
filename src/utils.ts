@@ -158,5 +158,5 @@ export function makeUploaderLink(
 }
 
 export function makeFilePath(row: VideoItem) {
-  return window.pathJoin(localSetting.outputDir, row.id + ".mp4");
+  return window.pathJoin(localSetting.outputDir, row.id + "." + row.ext);
 }

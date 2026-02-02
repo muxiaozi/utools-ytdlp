@@ -28,7 +28,6 @@ declare class YtdlpManager {
       proxy?: string;
       onProgress?: (progress: DownloadProcess) => void;
       jsRuntime?: string;
-      additionalOptions?: string[];
     },
   ): Promise<any>;
   getInfoAsync(
@@ -37,7 +36,6 @@ declare class YtdlpManager {
       cookies?: string;
       proxy?: string;
       jsRuntime?: string;
-      additionalOptions?: string[];
     },
   ): Promise<any>;
 }
