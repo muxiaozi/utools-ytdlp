@@ -300,9 +300,15 @@ async function startDownload(items: VideoItem[]) {
     downloadQueue
       ?.add(displayItem)
       .then((result) => {
+        if (globalSettingState.notifyDownloadFinish) {
+          utools.showNotification(`[下载成功] ${item.title}`, "home");
+        }
         console.log("下载成功:", item.title, result);
       })
       .catch((error) => {
+        if (globalSettingState.notifyDownloadFinish) {
+          utools.showNotification(`[下载失败] ${item.title}`, "home");
+        }
         console.error("下载失败:", item.title, error);
       });
   }

@@ -1,4 +1,5 @@
-import { componentState, localSettingState } from "./store";
+import { componentMetadataList } from "./data";
+import { globalSettingState, localSettingState } from "./store";
 import { ComponentMetadata, VideoItem, VideoQuality } from "./types";
 
 export async function isPrepared(): Promise<boolean> {
@@ -84,17 +85,13 @@ export function makeYtdlpFormat(quality: VideoQuality): string {
   }
 }
 
-export async function fetchComponentMetadata(): Promise<ComponentMetadata> {
-  let response = await fetch(
-    "https://pan.cheshuimanong.com/f/MMGCb/metadata.json",
-  );
-  const json = await response.json();
+export function getComponentMetadata(): ComponentMetadata {
   if (utools.isWindows()) {
-    return json["windows"];
+    return componentMetadataList.windows;
   } else if (utools.isMacOS()) {
-    return json["macos"];
+    return componentMetadataList.macos;
   } else if (utools.isLinux()) {
-    return json["linux"];
+    return componentMetadataList.linux;
   } else {
     throw new Error("Unsupported platform");
   }
@@ -142,18 +139,23 @@ export function makeFilePath(row: VideoItem) {
 }
 
 export function getUpdatableComponents(): Array<string> {
-  if (!componentState.metadata) {
-    return [];
-  }
+  const componentMetadata = getComponentMetadata();
   let updateList = [];
-  if (localSettingState.ytdlpSha256 !== componentState.metadata!.ytdlp.sha256) {
+  if (localSettingState.ytdlpSha256 !== componentMetadata.ytdlp.sha256) {
     updateList.push("yt-dlp");
   }
-  if (localSettingState.ffmpegSha256 !== componentState.metadata!.ffmpeg.sha256) {
+  if (localSettingState.ffmpegSha256 !== componentMetadata.ffmpeg.sha256) {
     updateList.push("ffmpeg");
   }
-  if (localSettingState.denoSha256 !== componentState.metadata!.deno.sha256) {
+  if (localSettingState.denoSha256 !== componentMetadata.deno.sha256) {
     updateList.push("deno");
   }
   return updateList;
+}
+
+export function shouldNotifyComponentUpdate(): boolean {
+  return (
+    globalSettingState.notifyComponentUpdate &&
+    getUpdatableComponents().length > 0
+  );
 }

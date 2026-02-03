@@ -5,7 +5,6 @@ import {
   DisplayVideoItem,
   GlobalSetting,
   LocalSetting,
-  ComponentMetadata,
 } from "./types";
 
 // LocalSetting
@@ -38,6 +37,8 @@ const globalSettingState = reactive<GlobalSetting>({
   quality: "highest",
   codec: "h265",
   videoCount: 0,
+  notifyComponentUpdate: true,
+  notifyDownloadFinish: false,
 });
 const globalSettingKey = "global/setting";
 watch(globalSettingState, (setting: GlobalSetting) => {
@@ -74,9 +75,4 @@ for (let i = 0; i < globalSettingState.videoCount; i++) {
   });
 }
 
-// ComponentState
-const componentState = reactive<{
-  metadata?: ComponentMetadata;
-}>({});
-
-export { localSettingState, globalSettingState, downloadState, componentState };
+export { localSettingState, globalSettingState, downloadState };

@@ -49,6 +49,8 @@ export type GlobalSetting = {
   quality: VideoQuality;
   codec: string;
   videoCount: number;
+  notifyComponentUpdate: boolean;
+  notifyDownloadFinish: boolean;
 };
 
 export type DisplayVideoItem = VideoItem & {

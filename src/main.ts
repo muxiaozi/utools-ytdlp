@@ -1,21 +1,17 @@
 import { createApp } from "vue";
-import ElementPlus, { ElMessage } from "element-plus";
+import ElementPlus from "element-plus";
 import App from "./App.vue";
 import router from "./router";
 import { useDark } from "@vueuse/core";
 import * as ElementPlusIconsVue from "@element-plus/icons-vue";
 import { DownloadQueue } from "./download_queue";
 import zhCn from "element-plus/es/locale/lang/zh-cn";
-import { componentState, downloadState } from "./store";
+import { downloadState } from "./store";
 
 import "element-plus/dist/index.css";
 import "element-plus/theme-chalk/dark/css-vars.css";
 import "./style.css";
-import {
-  getUpdatableComponents,
-  fetchComponentMetadata,
-  isPrepared,
-} from "./utils";
+import { isPrepared, shouldNotifyComponentUpdate } from "./utils";
 
 // 创建下载队列实例
 const downloadQueue = new DownloadQueue();
@@ -53,20 +49,12 @@ utools.onPluginEnter(async ({ code, type, payload }) => {
     }
   }
 
-  // 获取组件列表
-  try {
-    componentState.metadata = await fetchComponentMetadata();
-  } catch (error) {
-    ElMessage.warning("获取组件列表失败");
-    console.error("获取组件列表失败", error);
-  }
-
   if (!(await isPrepared())) {
     router.push({ name: "setting" });
     return;
   }
 
-  if (getUpdatableComponents().length > 0) {
+  if (shouldNotifyComponentUpdate()) {
     router.push({ name: "setting" });
     return;
   }

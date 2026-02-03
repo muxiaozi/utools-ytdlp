@@ -30,7 +30,11 @@
       </el-form-item>
       <el-form-item label="下载目录">
         <div class="singleline-box">
-          <el-input v-model="localSettingState.outputDir" readonly style="flex: 1" />
+          <el-input
+            v-model="localSettingState.outputDir"
+            readonly
+            style="flex: 1"
+          />
           <el-button-group>
             <el-button @click="selectOutputDir">选择目录</el-button>
             <el-button @click="openOutputDir">打开目录</el-button>
@@ -80,7 +84,19 @@
             :disabled="!localSettingState.useProxy"
             placeholder="例如 http://127.0.0.1:1080"
           />
-          <el-checkbox border v-model="localSettingState.useProxy">启用</el-checkbox>
+          <el-checkbox border v-model="localSettingState.useProxy"
+            >启用</el-checkbox
+          >
+        </div>
+      </el-form-item>
+      <el-form-item label="通知">
+        <div class="singleline-box">
+          <el-checkbox v-model="globalSettingState.notifyComponentUpdate"
+            >组件有更新</el-checkbox
+          >
+          <el-checkbox v-model="globalSettingState.notifyDownloadFinish"
+            >下载完成</el-checkbox
+          >
         </div>
       </el-form-item>
     </el-form>
@@ -91,8 +107,13 @@
 import { onMounted, computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { localSettingState, globalSettingState, componentState } from "../store";
-import { getUpdatableComponents, exename } from "../utils";
+import { localSettingState, globalSettingState } from "../store";
+import {
+  getUpdatableComponents,
+  exename,
+  getComponentMetadata,
+  shouldNotifyComponentUpdate,
+} from "../utils";
 
 const router = useRouter();
 const downloadComponentsVisible = computed(() => {
@@ -105,36 +126,27 @@ const downloadComponentsVisible = computed(() => {
 });
 const downloadComponentsLoading = ref(false);
 const ytdlpPathIcon = computed(() => {
-  if (!componentState.metadata) {
-    return "";
-  }
   if (
     !localSettingState.ytdlpPath ||
-    localSettingState.ytdlpSha256 !== componentState.metadata!.ytdlp.sha256
+    localSettingState.ytdlpSha256 !== getComponentMetadata().ytdlp.sha256
   ) {
     return "Download";
   }
   return "";
 });
 const ffmpegPathIcon = computed(() => {
-  if (!componentState.metadata) {
-    return "";
-  }
   if (
     !localSettingState.ffmpegPath ||
-    localSettingState.ffmpegSha256 !== componentState.metadata!.ffmpeg.sha256
+    localSettingState.ffmpegSha256 !== getComponentMetadata().ffmpeg.sha256
   ) {
     return "Download";
   }
   return "";
 });
 const denoPathIcon = computed(() => {
-  if (!componentState.metadata) {
-    return "";
-  }
   if (
     !localSettingState.denoPath ||
-    localSettingState.denoSha256 !== componentState.metadata!.deno.sha256
+    localSettingState.denoSha256 !== getComponentMetadata().deno.sha256
   ) {
     return "Download";
   }
@@ -143,7 +155,6 @@ const denoPathIcon = computed(() => {
 
 onMounted(async () => {
   try {
-    let components = getUpdatableComponents();
     if (!window.ytdlp.isInitialized()) {
       ElMessageBox.confirm("未找到 FFmpeg 或 YtDlp 组件", "提示", {
         confirmButtonText: "帮我搞定",
@@ -156,8 +167,8 @@ onMounted(async () => {
           installComponents();
         })
         .catch(() => {});
-    } else if (components.length > 0) {
-      let component_list = components.join(", ");
+    } else if (shouldNotifyComponentUpdate()) {
+      let component_list = getUpdatableComponents().join(", ");
       ElMessageBox.confirm(`组件新版本可用: ${component_list}`, "提示", {
         confirmButtonText: "开始更新",
         cancelButtonText: "稍后再说",
@@ -202,7 +213,9 @@ const selectYtdlpFile = async () => {
   });
   if (path && path.length > 0) {
     localSettingState.ytdlpPath = path[0];
-    localSettingState.ytdlpSha256 = await window.fileSha256(localSettingState.ytdlpPath);
+    localSettingState.ytdlpSha256 = await window.fileSha256(
+      localSettingState.ytdlpPath,
+    );
     window.ytdlp.init({
       ffmpegPath: localSettingState.ffmpegPath,
       binaryPath: localSettingState.ytdlpPath,
@@ -236,7 +249,9 @@ const selectDenoFile = async () => {
   });
   if (path && path.length > 0) {
     localSettingState.denoPath = path[0];
-    localSettingState.denoSha256 = await window.fileSha256(localSettingState.denoPath);
+    localSettingState.denoSha256 = await window.fileSha256(
+      localSettingState.denoPath,
+    );
   }
 };
 
@@ -260,20 +275,18 @@ const installComponents = async () => {
     );
     console.log("make dir", componentsDir);
     window.mkdir(componentsDir);
+    const componentMetadata = getComponentMetadata();
 
     downloadComponentsLoading.value = true;
     console.log("Checking YtDlp");
     if (
       !localSettingState.ytdlpPath ||
       !window.fileExists(localSettingState.ytdlpPath) ||
-      localSettingState.ytdlpSha256 !== componentState.metadata!.ytdlp.sha256
+      localSettingState.ytdlpSha256 !== componentMetadata.ytdlp.sha256
     ) {
       const outputPath = window.pathJoin(componentsDir, exename("yt-dlp"));
       console.log("Downloading yt-dlp to:", outputPath);
-      await window.downloadFileAsync(
-        componentState.metadata!.ytdlp.url,
-        outputPath,
-      );
+      await window.downloadFileAsync(componentMetadata.ytdlp.url, outputPath);
       localSettingState.ytdlpPath = outputPath;
       localSettingState.ytdlpSha256 = await window.fileSha256(outputPath);
       try {
@@ -285,35 +298,13 @@ const installComponents = async () => {
     if (
       !localSettingState.ffmpegPath ||
       !window.fileExists(localSettingState.ffmpegPath) ||
-      localSettingState.ffmpegSha256 !== componentState.metadata!.ffmpeg.sha256
+      localSettingState.ffmpegSha256 !== componentMetadata.ffmpeg.sha256
     ) {
       const outputPath = window.pathJoin(componentsDir, exename("ffmpeg"));
       console.log("Downloading ffmpeg to:", outputPath);
-      await window.downloadFileAsync(
-        componentState.metadata!.ffmpeg.url,
-        outputPath,
-      );
+      await window.downloadFileAsync(componentMetadata.ffmpeg.url, outputPath);
       localSettingState.ffmpegPath = outputPath;
       localSettingState.ffmpegSha256 = await window.fileSha256(outputPath);
-      try {
-        window.chmod(outputPath, 0o755);
-      } catch (_err) {}
-    }
-
-    console.log("Checking Deno");
-    if (
-      !localSettingState.denoPath ||
-      !window.fileExists(localSettingState.denoPath) ||
-      localSettingState.denoSha256 !== componentState.metadata!.deno.sha256
-    ) {
-      const outputPath = window.pathJoin(componentsDir, exename("deno"));
-      console.log("Downloading deno to:", outputPath);
-      await window.downloadFileAsync(
-        componentState.metadata!.deno.url,
-        outputPath,
-      );
-      localSettingState.denoPath = outputPath;
-      localSettingState.denoSha256 = await window.fileSha256(outputPath);
       try {
         window.chmod(outputPath, 0o755);
       } catch (_err) {}
@@ -323,6 +314,23 @@ const installComponents = async () => {
       binaryPath: localSettingState.ytdlpPath,
       ffmpegPath: localSettingState.ffmpegPath,
     });
+
+    console.log("Checking Deno");
+    if (
+      !localSettingState.denoPath ||
+      !window.fileExists(localSettingState.denoPath) ||
+      localSettingState.denoSha256 !== componentMetadata.deno.sha256
+    ) {
+      const outputPath = window.pathJoin(componentsDir, exename("deno"));
+      console.log("Downloading deno to:", outputPath);
+      await window.downloadFileAsync(componentMetadata.deno.url, outputPath);
+      localSettingState.denoPath = outputPath;
+      localSettingState.denoSha256 = await window.fileSha256(outputPath);
+      try {
+        window.chmod(outputPath, 0o755);
+      } catch (_err) {}
+    }
+
     ElMessage({
       type: "success",
       message: "组件下载完成",
